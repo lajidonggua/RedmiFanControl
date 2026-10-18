@@ -18,7 +18,7 @@ namespace RedmiFanControl {
                 if(args.Length>0 && args[0]=="--stop-test")return SmokeTest.StopTest(args[1]);
                 Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
                 if(args.Length==2 && args[0]=="--preview-curve"){using(var editor=new CurveEditor(new UserConfiguration().Curve))editor.SavePreview(args[1]);return 0;}
-                bool preview=args.Length==2 && (args[0]=="--preview" || args[0]=="--preview-stopped" || args[0]=="--preview-percent" || args[0]=="--preview-offline");
+                bool preview=args.Length==2 && (args[0]=="--preview" || args[0]=="--preview-stopped" || args[0]=="--preview-percent" || args[0]=="--preview-offline" || args[0]=="--preview-maximized");
                 bool startup=args.Length==1 && args[0]=="--startup";
                 using(var singleton=new Mutex(false,"Local\\RedmiFanControl.TM2113.UI")){
                     bool ownsMutex=false;

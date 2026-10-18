@@ -12,8 +12,8 @@ namespace RedmiFanControl {
             ClientSize=new Size(920,700);MinimumSize=new Size(760,520);
             StartPosition=FormStartPosition.CenterScreen;Font=new Font("Microsoft YaHei UI",9);
             BackColor=Color.FromArgb(246,248,251);Icon=AppBrand.WindowIcon();
-            var scroll=new Panel{Dock=DockStyle.Fill,AutoScroll=true};Controls.Add(scroll);
-            canvas=new Panel{Size=new Size(920,700),Location=Point.Empty};scroll.Controls.Add(canvas);
+            viewport=new Panel{Dock=DockStyle.Fill,AutoScroll=true};Controls.Add(viewport);
+            canvas=new Panel{Size=new Size(920,700),Location=Point.Empty};viewport.Controls.Add(canvas);
             var header=new Panel{Location=Point.Empty,Size=new Size(920,76),BackColor=Color.White};canvas.Controls.Add(header);
             var logo=new PictureBox{Image=AppBrand.HeaderImage(),Location=new Point(20,16),Size=new Size(42,42),SizeMode=PictureBoxSizeMode.Zoom};header.Controls.Add(logo);
             AddLabel(header,"Redmi Fan Control",74,10,520,30,18,Ink,true);
@@ -23,26 +23,26 @@ namespace RedmiFanControl {
             statePanel=new Panel{Location=new Point(20,88),Size=new Size(880,74),BackColor=Color.FromArgb(231,240,253)};canvas.Controls.Add(statePanel);
             stateHeading=AddLabel(statePanel,"正在连接硬件",14,8,850,25,11,Ink,true);
             note=AddLabel(statePanel,"连接后可查看温度与转速。",14,35,850,34,9,Muted,false);
-            var left=Section("风扇实时状态",20,176,530,160);
+            var left=fanSection=Section("风扇实时状态",20,176,530,160);
             fans=Grid(left,12,40,506,82,new string[]{"风扇","当前转速","实际输出","状态"},new float[]{17,29,22,32});
             fans.Rows.Add("风扇 1","--","--","等待数据");fans.Rows.Add("风扇 2","--","--","等待数据");
             fanHint=AddLabel(left,"等待实时数据；读取失败显示 --。",16,128,496,22,8,Muted,false);
-            var right=Section("CPU 温度",566,176,334,160);
+            var right=temperatureSection=Section("CPU 温度",566,176,334,160);
             cpuBadge=AddLabel(right,"-- °C",20,40,290,45,26,Blue,true);
             sensors=Grid(right,14,92,306,55,new string[]{"传感器","本次最低 / 最高"},new float[]{46,54});
             sensors.Rows.Add("Tctl/Tdie","--");
-            var control=Section("自定义调速",20,350,560,242);
+            var control=controlSection=Section("自定义调速",20,350,560,242);
             AddLabel(control,"控制方式",18,45,90,26,9,Muted,false);
             controlMode=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Location=new Point(112,40),Size=new Size(425,29)};
             controlMode.Items.AddRange(new object[]{"固定百分比 · 0–100%","目标转速 · RPM","温度曲线 · 随 CPU 温度变化"});controlMode.SelectedIndex=2;control.Controls.Add(controlMode);
             percentPanel=new Panel{Location=new Point(16,78),Size=new Size(526,116)};control.Controls.Add(percentPanel);
             slider=new TrackBar{Minimum=0,Maximum=100,Value=60,TickFrequency=10,SmallChange=1,LargeChange=5,Location=new Point(0,4),Size=new Size(360,46)};percentPanel.Controls.Add(slider);
             number=new NumericUpDown{Minimum=0,Maximum=100,Value=60,Location=new Point(377,12),Size=new Size(88,28)};percentPanel.Controls.Add(number);
-            AddLabel(percentPanel,"%",474,15,30,23,10,Muted,false);
+            var percentUnit=AddLabel(percentPanel,"%",474,15,30,23,10,Muted,false);
             AddLabel(percentPanel,"快捷预设",8,65,80,24,9,Muted,false);
             presets=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Location=new Point(96,60),Size=new Size(181,28)};
             foreach(int value in PresetValues)presets.Items.Add(value==0?"0% · 请求停转":value+"%" );presets.SelectedIndex=4;percentPanel.Controls.Add(presets);
-            AddLabel(percentPanel,"实际输出受右侧规则约束",294,65,225,25,8,Muted,false);
+            var percentHint=AddLabel(percentPanel,"实际输出受右侧规则约束",294,65,225,25,8,Muted,false);
             rpmPanel=new Panel{Location=percentPanel.Location,Size=percentPanel.Size};control.Controls.Add(rpmPanel);
             AddLabel(rpmPanel,"目标转速",8,14,100,26,11,Ink,true);
             rpmTarget=new NumericUpDown{Minimum=0,Maximum=6000,Increment=100,Value=3000,Location=new Point(118,11),Size=new Size(130,30)};rpmPanel.Controls.Add(rpmTarget);
@@ -53,7 +53,7 @@ namespace RedmiFanControl {
             curveText=new TextBox{Visible=false,Text=CurveFormat.Format(new UserConfiguration().Curve)};control.Controls.Add(curveText);
             InitializeConfigurationUi(curvePanel);
             validation=AddLabel(control,"",18,203,520,28,8,Muted,false);
-            var rules=Section("静音与温度规则",596,350,304,242);InitializeStopRules(rules);
+            var rules=rulesSection=Section("静音与温度规则",596,350,304,242);InitializeStopRules(rules);
             var footer=new Panel{Location=new Point(20,606),Size=new Size(880,48),BackColor=Color.White};canvas.Controls.Add(footer);
             configStatus=AddLabel(footer,"尚未保存配置",12,8,310,32,8,Muted,false);
             saveConfig=Button(footer,"仅保存配置",330,6,135,36,false);saveConfig.Click+=delegate{SaveConfigurationUi();};
@@ -65,6 +65,16 @@ namespace RedmiFanControl {
             reconnect=Button(canvas,"连接硬件",641,661,126,29,false);exit=Button(canvas,"退出",781,661,119,29,false);
             Disposed+=delegate{logo.Image.Dispose();Icon.Dispose();hints.Dispose();timer.Dispose();tray.Dispose();};
             ResumeLayout(false);UiScale.Apply(this,new Size(920,700),new Size(760,520));
+            // Apply anchors only after DPI scaling, so parent resizing cannot scale offsets twice.
+            AnchorMany(AnchorStyles.Top|AnchorStyles.Left|AnchorStyles.Right,header,statePanel,stateHeading,note,fans,fanHint,sensors,controlMode,percentPanel,rpmPanel,slider);
+            AnchorMany(AnchorStyles.Top|AnchorStyles.Left|AnchorStyles.Right,cpuBadge,left.Controls[0],right.Controls[0],control.Controls[0],rules.Controls[0]);
+            AnchorMany(AnchorStyles.Top|AnchorStyles.Right,mode,startupBox,number,percentUnit,percentHint,editCurve,curveSummary);
+            AnchorMany(AnchorStyles.Top|AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right,curvePanel,curvePreview);
+            AnchorMany(AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right,validation,footer,status);
+            AnchorMany(AnchorStyles.Bottom|AnchorStyles.Right,updated,data,reconnect,exit);
+            AnchorMany(AnchorStyles.Top|AnchorStyles.Right,saveConfig,apply,automatic);
+            AnchorMany(AnchorStyles.Top|AnchorStyles.Left|AnchorStyles.Right,configStatus);
+            InitializeResponsiveLayout();
         }
         void ShowSettings(){
             using(var dialog=new Form{Text="设置与关于",Icon=AppBrand.WindowIcon(),ClientSize=new Size(570,300),Font=Font,StartPosition=FormStartPosition.CenterParent,FormBorderStyle=FormBorderStyle.FixedDialog,MaximizeBox=false,MinimizeBox=false}){

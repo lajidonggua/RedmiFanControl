@@ -6,6 +6,8 @@ Windows x64 原生风扇工具：实时温度 / 双风扇 RPM、0–100% 联动�
 
 ![0.9 主界面预览，图中是示例数据](docs/images/main-preview.png)
 
+0.9.1 支持随窗口大小调整布局，最大化时卡片和曲线图会扩展，底部按钮跟随窗口边缘。[查看最大化预览（示例数据）](docs/images/main-maximized-preview.png)。
+
 > **设备专用实验项目，不是通用笔记本调速工具。** 仅验证 Redmi Book Pro 15 2022 / Ryzen 7 6800H / BIOS RMARB5B0P1111 / EC P.11（IT5571）。其他设备或固件版本会拒绝控制。错误的风扇设置可能导致过热、数据丢失或硬件损坏，请阅读 [安全边界](docs/SAFETY.md)。本项目不属于小米、AMD、ITE、PawnIO 或 CrystalIDEA。
 
 ## 功能
@@ -64,10 +66,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Package.ps1
 ## GitHub 自动构建与发布
 
 - Push 到 `main`、Pull Request、手动运行 Actions：固定依赖核验 → 构建 → 离线测试 → 独立 EXE / ZIP 验证 → Artifact。
-- 推送与程序集一致的版本标签，例如 `v0.9.0`：上述步骤成功后自动创建 **实验性 Pre-release**，附 EXE、ZIP 和 SHA256SUMS。
+- 推送与程序集一致的版本标签，例如 `v0.9.1`：上述步骤成功后自动创建 **实验性 Pre-release**，附 EXE、ZIP 和 SHA256SUMS。
 
 - 只使用 GitHub 自动提供的 `GITHUB_TOKEN`，不需要 PAT；第三方 Actions 固定到完整提交 SHA。
 - 已存在的 Release 不会被覆盖。版本不匹配、测试/哈希失败都会阻止发布。
+
+0.9.1：修复最大化后内容留在左上角；增加窗口放大、还原、小窗口滚动及三种模式布局回归。
 
 0.9.0：单 EXE、按模式显示编辑区、明确停转与断连、保存失败阻止应用、异步安全退出、旧配置迁移。详见 [重构分析与回归范围](docs/REFACTOR-0.9.md)。
 

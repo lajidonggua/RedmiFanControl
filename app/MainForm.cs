@@ -205,7 +205,9 @@ namespace RedmiFanControl {
             RefreshActions();
         }
         public void SavePreview(string path,string scenario="--preview"){
+            if(scenario=="--preview-maximized")Opacity=0;
             ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;Location=new Point(-2500,-2500);Show();Application.DoEvents();
+            if(scenario=="--preview-maximized"){WindowState=FormWindowState.Maximized;Application.DoEvents();}
             Text="Redmi Fan Control · 界面预览（示例数据）";
             var sample=new Frame{Utc=DateTime.UtcNow.ToString("o"),Connected=true,CanControl=true,Manual=false,Rpm1=2652,Rpm2=2671,Output1=30.5,Output2=34.4,CpuC=42.5,Status="界面预览 · 示例数据，未连接硬件"};
             if(scenario=="--preview-stopped"){sample.Rpm1=sample.Rpm2=0;sample.Output1=sample.Output2=0;sample.CpuC=38;}
