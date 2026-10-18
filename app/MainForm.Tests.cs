@@ -8,7 +8,7 @@ namespace RedmiFanControl {
             Opacity=0;ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;Location=new Point(-2500,-2500);Show();Application.DoEvents();
             Size normal=ClientSize;float fontSize=stateHeading.Font.Size;
             var original=new System.Collections.Generic.Dictionary<Control,Rectangle>();
-            foreach(Control control in new Control[]{canvas,fanSection,temperatureSection,controlSection,rulesSection,curvePanel,curvePreview,editCurve,number,slider,apply,exit})original[control]=control.Bounds;
+            foreach(Control control in new Control[]{canvas,fanSection,temperatureSection,controlSection,rulesSection,curvePanel,curvePreview,editCurve,number,slider,apply,exit})original[control]=UnscrolledBounds(control);
             ClientSize=new Size(normal.Width+LayoutPixels(360),normal.Height+LayoutPixels(180));Application.DoEvents();
             VerifyLayoutBounds();
             if(ClientSize.Width>normal.Width && curvePreview.Width<=original[curvePreview].Width)throw new Exception("Wide window did not expand curve graph");
@@ -16,15 +16,22 @@ namespace RedmiFanControl {
             WindowState=FormWindowState.Maximized;Application.DoEvents();VerifyLayoutBounds();
             for(int modeIndex=0;modeIndex<3;modeIndex++){controlMode.SelectedIndex=modeIndex;Application.DoEvents();VerifyLayoutBounds();}
             WindowState=FormWindowState.Normal;ClientSize=normal;controlMode.SelectedIndex=2;Application.DoEvents();VerifyLayoutBounds();
-            foreach(var pair in original)if(pair.Key.Bounds!=pair.Value)throw new Exception("Maximize/restore changed original bounds: "+pair.Key.GetType().Name+" "+pair.Value+" -> "+pair.Key.Bounds);
+            foreach(var pair in original)if(UnscrolledBounds(pair.Key)!=pair.Value)throw new Exception("Maximize/restore changed original bounds: "+pair.Key.GetType().Name+" "+pair.Value+" -> "+UnscrolledBounds(pair.Key));
             Size minimumClient=new Size(LayoutPixels(760),LayoutPixels(520));ClientSize=minimumClient;Application.DoEvents();VerifyLayoutBounds();
             if(viewport.ClientSize.Width<LayoutPixels(920) && !viewport.HorizontalScroll.Visible)throw new Exception("Small window must scroll horizontally");
             if(viewport.ClientSize.Height<LayoutPixels(700) && !viewport.VerticalScroll.Visible)throw new Exception("Small window must scroll vertically");
             viewport.AutoScrollPosition=new Point(LayoutPixels(150),LayoutPixels(180));Application.DoEvents();
             ClientSize=normal;Application.DoEvents();VerifyLayoutBounds();
             if(stateHeading.Font.Size!=fontSize)throw new Exception("Window resizing must not enlarge fonts");
-            foreach(var pair in original)if(pair.Key.Bounds!=pair.Value)throw new Exception("Shrink/restore drift: "+pair.Key.GetType().Name);
+            foreach(var pair in original)if(UnscrolledBounds(pair.Key)!=pair.Value)throw new Exception("Shrink/restore drift: "+pair.Key.GetType().Name);
             Hide();
+        }
+        Rectangle UnscrolledBounds(Control control){
+            // WinForms scrolls focused controls into view on small CI desktops.
+            // Compare content coordinates; a viewport scroll is not layout drift.
+            Rectangle bounds=control.Bounds;
+            if(control==canvas)bounds.Offset(-viewport.AutoScrollPosition.X,-viewport.AutoScrollPosition.Y);
+            return bounds;
         }
         void VerifyLayoutBounds(){
             if(canvas.Width!=Math.Max(LayoutPixels(920),viewport.ClientSize.Width) || canvas.Height!=Math.Max(LayoutPixels(700),viewport.ClientSize.Height))throw new Exception("Content must fill the available viewport");
