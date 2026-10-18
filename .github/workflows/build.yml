@@ -35,6 +35,9 @@ jobs:
       - name: Package Windows x64 portable app
         shell: powershell
         run: .\scripts\Package.ps1
+      - name: Verify extracted portable package offline
+        shell: powershell
+        run: .\scripts\Verify-Package.ps1 -Archive (Get-ChildItem dist/*.zip | Select-Object -First 1).FullName
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: RedmiFanControl-windows-x64
