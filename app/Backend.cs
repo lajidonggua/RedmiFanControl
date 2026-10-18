@@ -11,9 +11,9 @@ namespace RedmiFanControl {
             string model=Query("Win32_ComputerSystem","Model"),bios=Query("Win32_BIOS","SMBIOSBIOSVersion"),cpu=Query("Win32_Processor","Name");
             if(model!="Redmi Book Pro 15 2022" || bios!="RMARB5B0P1111" || cpu.IndexOf("6800H",StringComparison.Ordinal)<0)
                 throw new InvalidOperationException("仅支持 Redmi Book Pro 15 2022 / 6800H / P.11，设备核验不符。未写入硬件。");
-            string modules=Path.Combine(Program.Root,"deps","pawnio-modules-0.2.11");
-            fan=new StrictSuperIoProbe(@"C:\Program Files\PawnIO\PawnIOLib.dll",Path.Combine(modules,"LpcIO.bin"));
-            try{temp=new StrictSuperIoProbe(@"C:\Program Files\PawnIO\PawnIOLib.dll",Path.Combine(modules,"AMDFamily17.bin"));}
+            string modules=AppPaths.Modules;RuntimeModules.Verify(modules);
+            fan=new StrictSuperIoProbe(AppPaths.DriverLibrary,Path.Combine(modules,"LpcIO.bin"));
+            try{temp=new StrictSuperIoProbe(AppPaths.DriverLibrary,Path.Combine(modules,"AMDFamily17.bin"));}
             catch{fan.Dispose();throw;}
         }
         static string Query(string type,string field){using(var search=new ManagementObjectSearcher("SELECT "+field+" FROM "+type)){foreach(ManagementObject item in search.Get())using(item)return Convert.ToString(item[field]);}return "";}
@@ -31,7 +31,7 @@ namespace RedmiFanControl {
     static class Backend {
         static string StatePath(string run){return Path.Combine(run,"state.json");}
         static void ValidateRun(string run,string session){
-            string prefix=Path.GetFullPath(Path.Combine(Program.Root,"runs"))+Path.DirectorySeparatorChar;
+            string prefix=Path.GetFullPath(AppPaths.Runs)+Path.DirectorySeparatorChar;
             if(!Path.GetFullPath(run).StartsWith(prefix,StringComparison.OrdinalIgnoreCase) || !Directory.Exists(run) || session.Length!=48)
                 throw new InvalidOperationException("Invalid local application session.");
             foreach(char c in session)if(!Uri.IsHexDigit(c))throw new InvalidOperationException("Invalid session token.");

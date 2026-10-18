@@ -4,7 +4,7 @@ namespace RedmiFanControl {
     public sealed class UserConfiguration {
         public int Version=1;public int Mode=2,Percent=60,Rpm=3000;
         public bool AllowFanStop=true;public int StopBelowC=50,MinimumRunningPercent=20;
-        public CurvePoint[] Curve=MainForm.ParseCurve("35:0; 45:10; 55:20; 65:30; 75:40; 80:100");
+        public CurvePoint[] Curve=CurveFormat.Parse("35:0; 45:10; 55:20; 65:30; 75:40; 80:100");
         public Message Request(){return new Message{Command=Mode==0?"SET":Mode==1?"RPM":"CURVE",Percent=Percent,Rpm=Rpm,Curve=Curve,AllowFanStop=AllowFanStop,StopBelowC=StopBelowC,MinimumRunningPercent=MinimumRunningPercent};}
         public void Validate(){
             if(Version!=1 || Mode<0 || Mode>2 || Percent<0 || Percent>100 || (Rpm!=0 && (Rpm<1000 || Rpm>6000)))throw new ArgumentException("配置版本或数值无效。");
@@ -12,7 +12,19 @@ namespace RedmiFanControl {
         }
     }
     static class ConfigurationStore {
-        public static string DefaultPath { get {return Path.Combine(Program.Root,"config","fan-control.json");} }
+        public static string DefaultPath { get {return AppPaths.Configuration;} }
+        public static UserConfiguration LoadDefault(out string note){return LoadWithMigration(DefaultPath,AppPaths.LegacyConfiguration,out note);}
+        internal static UserConfiguration LoadWithMigration(string path,string legacy,out string note){
+            if(!File.Exists(path) && legacy!=null && File.Exists(legacy)){
+                var value=Load(legacy,out note);
+                if(note.StartsWith("已加载") || note.Contains("已加载上次备份")){
+                    try{Save(path,value);note="已迁移旧配置 · 点击应用后生效";}
+                    catch(Exception ex){note="已读取旧配置，迁移保存失败："+ex.Message;}
+                    return value;
+                }
+            }
+            return Load(path,out note);
+        }
         public static UserConfiguration Load(string path,out string note){
             note="尚无已保存配置";if(!File.Exists(path))return new UserConfiguration();
             try{var value=Files.Read<UserConfiguration>(path);if(value==null)throw new ArgumentException("配置无法读取");value.Validate();note="已加载配置 · 启动仍为系统自动";return value;}

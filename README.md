@@ -2,6 +2,10 @@
 
 Windows x64 原生风扇工具：实时温度 / 双风扇 RPM、0–100% 联动输出、目标 RPM、可视化温度曲线、配置保存与登录自启。
 
+**0.9：下载 EXE，双击启动。无需 CMD，也无需另外携带模块文件夹。** 已安装官方 PawnIO 的机器可以直接使用；首次使用仍需安装该驱动并正常确认 UAC。
+
+![0.9 主界面预览，图中是示例数据](docs/images/main-preview.png)
+
 > **设备专用实验项目，不是通用笔记本调速工具。** 仅验证 Redmi Book Pro 15 2022 / Ryzen 7 6800H / BIOS RMARB5B0P1111 / EC P.11（IT5571）。其他设备或固件版本会拒绝控制。错误的风扇设置可能导致过热、数据丢失或硬件损坏，请阅读 [安全边界](docs/SAFETY.md)。本项目不属于小米、AMD、ITE、PawnIO 或 CrystalIDEA。
 
 ## 功能
@@ -17,11 +21,15 @@ Windows x64 原生风扇工具：实时温度 / 双风扇 RPM、0–100% 联动�
 
 ## 下载与运行
 
-1. 从本仓库 Releases 下载 Windows x64 ZIP，完整解压到一个可写的固定目录，不能只复制 EXE。
+1. 从本仓库 Releases 下载 `RedmiFanControl-<版本>-win-x64.exe`，保存到固定目录并双击。也提供含文档的 ZIP，解压后双击根目录的 `RedmiFanControl.exe`。
 2. 从 [PawnIO 官方网站](https://pawnio.eu/) 安装官方 PawnIO。发布包不包含驱动安装器，也不会替你安装驱动。
-3. 双击 `Start-FanControl.cmd`，正常确认 UAC。默认监测并由固件自动调速。
-4. 选择模式、编辑配置，点击对应应用按钮。看到“已生效”才表示后台已接管。
-5. 随时点击“恢复系统自动”。退出后风扇可能由固件缓慢降速，并非立即静音。
+3. 程序自动准备已内嵌的官方模块并校验 SHA-256；正常确认 UAC 后开始监测，默认由固件自动调速。
+4. 选择控制方式，只编辑当前模式的控件，点击“保存并应用”。“仅保存配置”不会改变风扇，看到顶部“已生效”才表示后台已接管。
+5. 随时点击“恢复系统自动”。点击 × 会等待恢复后退出；最小化留在托盘。再次双击 EXE 会打开已有窗口。退出后风扇可能由固件缓慢降速，并非立即静音。
+
+**0 RPM 与读取失败不同：** “系统停转 / 按设置停转”表示当前读到零转速；没有有效实时数据时显示 `--`。
+
+配置、日志和模块保存在 `%LOCALAPPDATA%\RedmiFanControl`。在“设置 / 关于”中可打开数据目录、查看许可证和对应模块源码。将新版 EXE 放进旧安装根目录时，会读取旧的 `config/fan-control.json` 并迁移；已有新配置不会被覆盖。旧版正在运行时请先正常退出。
 
 项目使用 .NET Framework 4.x、WinForms，依赖可运行 .NET Framework 4.8 的 Windows x64 环境。未签名的应用可能触发 Windows SmartScreen；请校验 Release 附带的 SHA256SUMS，不要为运行本工具关闭系统安全功能。
 
@@ -44,24 +52,24 @@ Windows x64 原生风扇工具：实时温度 / 双风扇 RPM、0–100% 联动�
 在 Windows PowerShell 5.1 中执行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Restore-Dependencies.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Package.ps1
 ```
 
-第一步构建并运行纯离线模拟测试，不需要 PawnIO、管理员或真实硬件。第二步从固定官方版本下载模块和对应源码并检查 SHA-256，不运行下载内容。第三步生成 `dist/RedmiFanControl-<版本>-win-x64.zip` 和 `SHA256SUMS.txt`。新一次打包请使用新的输出目录，脚本不会覆盖已有发布 ZIP。
+第一步从固定官方版本下载模块和对应源码并检查 SHA-256，不运行下载内容。第二步构建并运行纯离线模拟测试，不需要 PawnIO、管理员或真实硬件。第三步生成独立 `.exe`、带文档的 `.zip` 和 `SHA256SUMS.txt`。新一次打包请使用新的输出目录，脚本不会覆盖已有发布文件。
 
 不使用 NuGet，不在 CI 安装驱动或做负载/温度/EC 测试；使用系统 .NET Framework 编译器。版本在 `app/AssemblyInfo.cs`。
 
 ## GitHub 自动构建与发布
 
-- Push 到 `main`、Pull Request、手动运行 Actions：构建 → 离线测试 → 固定依赖核验 → ZIP → Artifact。
-- 推送与程序集一致的版本标签，例如 `v0.8.1`：上述步骤成功后自动创建 **实验性 Pre-release**，附 ZIP 和 SHA256SUMS。
+- Push 到 `main`、Pull Request、手动运行 Actions：固定依赖核验 → 构建 → 离线测试 → 独立 EXE / ZIP 验证 → Artifact。
+- 推送与程序集一致的版本标签，例如 `v0.9.0`：上述步骤成功后自动创建 **实验性 Pre-release**，附 EXE、ZIP 和 SHA256SUMS。
 
 - 只使用 GitHub 自动提供的 `GITHUB_TOKEN`，不需要 PAT；第三方 Actions 固定到完整提交 SHA。
 - 已存在的 Release 不会被覆盖。版本不匹配、测试/哈希失败都会阻止发布。
 
-0.8.1：新增 30%／40% 固定输出预设；关闭窗口时检查本次会话的新鲜自动恢复确认，状态缺失或未确认会提醒。最小化仍驻留托盘，点击“×”退出并恢复系统自动。
+0.9.0：单 EXE、按模式显示编辑区、明确停转与断连、保存失败阻止应用、异步安全退出、旧配置迁移。详见 [重构分析与回归范围](docs/REFACTOR-0.9.md)。
 
 首次发布步骤见 [发布指南](docs/PUBLISHING.md)。本地准备好工作流不等于它已经在你的 GitHub 账号上运行成功。
 

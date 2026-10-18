@@ -35,7 +35,11 @@ namespace RedmiFanControl {
             if(File.Exists(path))File.Replace(temp,path,null);else File.Move(temp,path);
         }
         public static T Read<T>(string path) where T:class {
-            try{if(!File.Exists(path) || new FileInfo(path).Length>32768)return null;return new JavaScriptSerializer().Deserialize<T>(File.ReadAllText(path));}
+            try{
+                if(!File.Exists(path) || new FileInfo(path).Length>32768)return null;
+                using(var stream=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete))
+                using(var reader=new StreamReader(stream))return new JavaScriptSerializer().Deserialize<T>(reader.ReadToEnd());
+            }
             catch(IOException){return null;}catch(ArgumentException){return null;}
         }
         public static void Event(string path,string kind,object value){

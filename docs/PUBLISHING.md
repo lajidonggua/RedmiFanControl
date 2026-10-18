@@ -20,11 +20,11 @@ git push -u origin main
 确认 main 的 Actions 成功后，推送与 `app/AssemblyInfo.cs` 一致的标签：
 
 ```powershell
-git tag v0.8.1
-git push origin v0.8.1
+git tag v0.9.0
+git push origin v0.9.0
 ```
 
-Actions 会构建和执行纯离线测试，下载固定 SHA-256 的官方模块/对应源码，打包 Windows x64 ZIP，然后创建实验性 Pre-release。
+Actions 先下载并校验固定官方模块/源码，再构建和执行纯离线测试；生成 Windows x64 单 EXE 与文档 ZIP，分别隔离运行验证，最后创建实验性 Pre-release。
 普通 main/PR 构建仅产生可下载 Artifact，不会创建 Release。工作流自动提供的 GITHUB_TOKEN 已分离最小读取/发布权限，不需额外配置 PAT。
 仓库/组织必须允许 GitHub Actions；若组织策略禁止写 Release，需要仓库管理员允许此工作流的 contents:write。
 
@@ -33,13 +33,16 @@ Actions 会构建和执行纯离线测试，下载固定 SHA-256 的官方模块
 ## 本地验证
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Restore-Dependencies.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Package.ps1
-Get-FileHash dist/*.zip -Algorithm SHA256
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Verify-Package.ps1 -Executable dist/RedmiFanControl-0.9.0-win-x64.exe
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Verify-Package.ps1 -Archive dist/RedmiFanControl-0.9.0-win-x64.zip
 ```
 
 本地打包通过与 GitHub 托管运行成功是两回事。首次远程运行仍需在 Actions 页面确认，尤其是仓库权限、网络和 Windows runner 环境。
+
+下载的 EXE 可直接启动；ZIP 根目录也有同一个 EXE，不再发布 CMD/BAT 启动器。`SHA256SUMS.txt` 同时记录这两个发布文件。
 
 模块来源与集成参考：[PawnIO 官方集成说明](https://github.com/namazso/PawnIO.Modules/wiki/Using-PawnIO-Modules)。
 发布接口参考：[GitHub CLI release create](https://cli.github.com/manual/gh_release_create)。

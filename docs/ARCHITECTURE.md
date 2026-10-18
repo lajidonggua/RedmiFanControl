@@ -15,7 +15,11 @@
 | 文件 | 职责 |
 |---|---|
 | `app/Program.cs` | UI / worker / guardian / 离线自测角色分发、单实例、正常 UAC |
-| `app/MainForm.cs` | 实时列表、应用确认、已生效/未应用/保护状态、安全重连/退出、托盘 |
+| `app/MainForm.cs` | 连接、读回、应用事件、轮询、托盘 |
+| `app/MainForm.Layout.cs` / `app/Presentation.cs` | 模式编辑区与布局 / 可离线验证的实时与运行状态描述 |
+| `app/MainForm.Shutdown.cs` | 异步 QUIT、同会话恢复确认、正常退出 |
+| `app/AppPaths.cs` / `app/RuntimeModules.cs` | 用户数据目录 / 单 EXE 内嵌模块释放与校验 |
+| `app/CurveFormat.cs` | 曲线文本格式转换，不依赖 UI |
 | `app/CurveEditor.cs` | 节点表增删/排序/校验、请求曲线预览 |
 | `app/Configuration*.cs` | 配置持久化/备份及编辑状态；不等于硬件应用 |
 | `app/ControlPolicy.cs` | 不触硬件的确定性控制决策与温度下限，主控/看护共享 |
@@ -27,9 +31,11 @@
 | `tools/StrictSuperIoProbe.cs` | 原生绑定、严格结果长度/状态检查、固定只读路径 |
 | `tools/StrictIteFanControl.cs` | 独立 opt-in 部分，仅三处控制 RAM 写入白名单 |
 | `scripts/` | 离线测试、官方依赖恢复、可复现打包 |
-| `.github/workflows/build.yml` | Windows 构建/测试/Artifact/标签发布 |
+| `.github/workflows/build.yml` | Windows 构建/测试/独立 EXE + ZIP 验证/Artifact/标签发布 |
 
 ## 决策流程
+
+0.9 的重构分析和回归范围见 [REFACTOR-0.9.md](REFACTOR-0.9.md)。运行时不要求源码目录结构；用户数据在 LocalAppData，模块在普通权限 UI 中校验后释放，提权进程只读这些模块。
 
 当前温度 → 模式请求百分比 → 明确停转/最低输出 → 同一温度下限函数 → 有界启动助推 → 三地址白名单执行。
 95°C、传感器/心跳错误、持续真实失速会进入恢复固件自动路径，不随正常曲线自动重新接管。

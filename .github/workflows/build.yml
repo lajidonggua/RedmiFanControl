@@ -18,6 +18,9 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+      - name: Restore pinned official dependencies and source
+        shell: powershell
+        run: .\scripts\Restore-Dependencies.ps1
       - name: Build and run offline-only tests
         shell: powershell
         run: .\scripts\Test.ps1
@@ -29,20 +32,20 @@ jobs:
         run: |
           $version = ([Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path 'app/bin/RedmiFanControl.exe')).ProductVersion -split '\.')[0..2] -join '.'
           if ($env:RELEASE_TAG -notmatch '^v(\d+\.\d+\.\d+)(-[A-Za-z0-9.-]+)?$' -or $Matches[1] -ne $version) { throw 'Tag must match app/AssemblyInfo.cs version' }
-      - name: Restore pinned official dependencies and source
-        shell: powershell
-        run: .\scripts\Restore-Dependencies.ps1
       - name: Package Windows x64 portable app
         shell: powershell
         run: .\scripts\Package.ps1
       - name: Verify extracted portable package offline
         shell: powershell
-        run: .\scripts\Verify-Package.ps1 -Archive (Get-ChildItem dist/*.zip | Select-Object -First 1).FullName
+        run: |
+          .\scripts\Verify-Package.ps1 -Archive (Get-ChildItem dist/*.zip | Select-Object -First 1).FullName
+          .\scripts\Verify-Package.ps1 -Executable (Get-ChildItem dist/*.exe | Select-Object -First 1).FullName
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: RedmiFanControl-windows-x64
           path: |
             dist/*.zip
+            dist/*.exe
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
@@ -64,10 +67,17 @@ jobs:
         run: |
           gh run download $env:RUN_ID --name RedmiFanControl-windows-x64 --dir artifacts
           if ($LASTEXITCODE -ne 0) { throw 'Artifact download failed' }
-          $line = (Get-Content artifacts/SHA256SUMS.txt).Trim()
-          $expected, $name = $line -split '\s+', 2
-          $actual = (Get-FileHash (Join-Path artifacts $name) -Algorithm SHA256).Hash
-          if ($actual -ne $expected) { throw 'Release artifact hash mismatch' }
+          $lines = @(Get-Content artifacts/SHA256SUMS.txt)
+          if ($lines.Count -ne 2) { throw 'Expected ZIP and standalone EXE checksums' }
+          $names = @()
+          foreach ($line in $lines) {
+            $expected, $name = $line.Trim() -split '\s+', 2
+            if ($expected -notmatch '^[0-9a-f]{64}$' -or $name -notmatch '^RedmiFanControl-[0-9.]+-win-x64\.(zip|exe)$' -or $names -contains $name) { throw 'Invalid checksum manifest' }
+            $actual = (Get-FileHash (Join-Path artifacts $name) -Algorithm SHA256).Hash
+            if ($actual -ne $expected) { throw 'Release artifact hash mismatch' }
+            $names += $name
+          }
+          if (@($names | Where-Object { $_ -like '*.exe' }).Count -ne 1 -or @($names | Where-Object { $_ -like '*.zip' }).Count -ne 1) { throw 'Missing release format' }
       - name: Publish experimental prerelease
         shell: pwsh
         env:

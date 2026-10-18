@@ -3,8 +3,10 @@ using System.IO;
 using EcResearch;
 namespace RedmiFanControl {
     static class AppTests {
-        public static int Run(){
-            string output=Path.Combine(Program.Root,"app","selftest.txt");
+        static string testDirectory;
+        public static int Run(string directory){
+            testDirectory=Path.GetFullPath(directory);Directory.CreateDirectory(testDirectory);
+            string output=Path.Combine(testDirectory,"selftest.txt");
             try{
                 if(StrictSuperIoProbe.PercentToRaw(50)!=64 || StrictSuperIoProbe.PercentToRaw(60)!=77 || StrictSuperIoProbe.PercentToRaw(99)!=126 || StrictSuperIoProbe.PercentToRaw(100)!=127)throw new Exception("Percentage conversion");
                 if(StrictSuperIoProbe.PercentToRaw(0)!=0 || StrictSuperIoProbe.PercentToRaw(1)!=1 || StrictSuperIoProbe.PercentToRaw(49)!=63)throw new Exception("Low range conversion");
@@ -23,27 +25,29 @@ namespace RedmiFanControl {
                 PolicyTests();
                 StatelessRegressionTests();
                 ConfigurationTests();
+                RuntimeAndPresentationTests();
                 FrameLeaseTests();
                 using(var icon=AppBrand.WindowIcon())Require(icon.Width==32 && icon.Height==32,"Embedded window/tray icon size");
                 using(var logo=AppBrand.HeaderImage())Require(logo.Width==256 && logo.Height==256 && logo.GetPixel(0,0).A==0,"Embedded logo size/transparency");
-                string path=Path.Combine(Program.Root,"app","selftest-state.json");
+                string path=Path.Combine(testDirectory,"selftest-state.json");
                 Files.Write(path,new Frame{Session="test",CpuC=42.5,Rpm1=2642});var f=Files.Read<Frame>(path);
                 if(f==null || f.CpuC!=42.5 || f.Rpm1!=2642)throw new Exception("IPC serialization");
                 System.Windows.Forms.Application.EnableVisualStyles();System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
                 using(var ui=new MainForm(true))ui.VerifyUiContract();
                 using(var ui=new MainForm(true))ui.VerifyUiStates();
                 using(var ui=new MainForm(true))ui.VerifyAutostartUi();
+                using(var ui=new MainForm(true))ui.VerifyShutdownContract(testDirectory);
                 var startupStore=new MemoryStartupStore();Autostart.Set(startupStore,@"C:\Fan Control\RedmiFanControl.exe",true);
                 Require(startupStore.Read()=="\"C:\\Fan Control\\RedmiFanControl.exe\" --startup","Startup quoting / safe startup flag");
                 Autostart.Set(startupStore,@"C:\Fan Control\RedmiFanControl.exe",false);Require(startupStore.Read()==null,"Startup removal");
                 Reject(delegate{Autostart.Command("relative.exe");});Reject(delegate{Autostart.Command("C:\\bad\"name.exe");});
                 using(var editor=new CurveEditor(new UserConfiguration().Curve))editor.VerifyContract();
-                File.WriteAllText(output,"PASS: reported 64.9->47.9C case releases to 0%; ascending/descending temperature sweeps across every stop ceiling and min output; no hidden cooling/hysteresis state; UI requested->target/reason; shared guardian floor and config transition; explicit stop vs true stall; persistence/editor/heartbeats; 95C boundary. No hardware accessed. No real high-temperature/stop test performed.");return 0;
+                File.WriteAllText(output,"PASS: independent EXE runtime extraction and tamper repair; legacy config migration without overwrite; asynchronous QUIT and same-session recovery; active-mode-only UI; stopped vs unavailable telemetry; thermal sweeps, requested->target rules, guardian floors, stop/stall, persistence/editor/heartbeats and 95C boundary. No hardware or real user settings accessed.");return 0;
             }catch(Exception ex){File.WriteAllText(output,"FAIL: "+ex);return 1;}
         }
         static void Require(bool ok,string text){if(!ok)throw new Exception(text);}
         static void ConfigurationTests(){
-            string path=Path.Combine(Program.Root,"app","selftest-configuration.json");
+            string path=Path.Combine(testDirectory,"selftest-configuration.json");
             var value=new UserConfiguration{Mode=2,AllowFanStop=true,StopBelowC=55,MinimumRunningPercent=25};ConfigurationStore.Save(path,value);
             string note;var loaded=ConfigurationStore.Load(path,out note);
             Require(loaded.Mode==2 && loaded.AllowFanStop && loaded.StopBelowC==55 && loaded.MinimumRunningPercent==25 && loaded.Curve.Length==6,"Settings roundtrip");
@@ -51,6 +55,22 @@ namespace RedmiFanControl {
             Files.Write(path,new {Version=999});loaded=ConfigurationStore.Load(path,out note);
             Require(loaded.Percent==60 && note.Contains("备份"),"Invalid primary backup recovery");
             value.StopBelowC=95;Reject(delegate{value.Validate();});
+        }
+        static void RuntimeAndPresentationTests(){
+            string modules=Path.Combine(testDirectory,"embedded-runtime");RuntimeModules.Prepare(modules);RuntimeModules.Verify(modules);
+            File.WriteAllText(Path.Combine(modules,"LpcIO.bin"),"damaged");Reject(delegate{RuntimeModules.Verify(modules);});
+            RuntimeModules.Prepare(modules);RuntimeModules.Verify(modules);
+            string legacy=Path.Combine(testDirectory,"legacy.json"),destination=Path.Combine(testDirectory,"migrated.json");
+            ConfigurationStore.Save(legacy,new UserConfiguration{Percent=30});string note;
+            var migrated=ConfigurationStore.LoadWithMigration(destination,legacy,out note);
+            Require(migrated.Percent==30 && File.Exists(destination) && note.Contains("迁移"),"Legacy configuration migration");
+            ConfigurationStore.Save(destination,new UserConfiguration{Percent=40});
+            Require(ConfigurationStore.LoadWithMigration(destination,legacy,out note).Percent==40,"Migration must not overwrite new settings");
+            var live=new Frame{Utc=DateTime.UtcNow.ToString("o"),Connected=true,CanControl=true,CpuC=38};
+            Require(Presentation.Describe(live,null,false,0).Detail.Contains("0 RPM 是有效读数"),"Automatic stop explanation");
+            Require(Presentation.FanState(0,0,false)=="系统停转" && Presentation.FanState(0,30,true)=="等待起转" && Presentation.FanState(500,0,false)=="减速中","Stopped vs spinning up vs coast-down");
+            live.Utc=DateTime.UtcNow.AddSeconds(-5).ToString("o");Require(!Presentation.IsLive(live),"Stale telemetry must not look live");
+            Require(Presentation.Describe(live,null,false,0).Title.Contains("未连接"),"Stale telemetry explanation");
         }
         static void FrameLeaseTests(){
             double clock=0;var lease=new FrameLease(4,delegate{return clock;});

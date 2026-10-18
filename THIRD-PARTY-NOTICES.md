@@ -7,7 +7,7 @@
 - Original release: https://github.com/namazso/PawnIO.Modules/releases/tag/0.2.11
 - License: GNU Lesser General Public License v2.1, unmodified upstream `COPYING` included.
 - Runtime modules: unmodified official signed `LpcIO.bin`, `AMDFamily17.bin` only.
-- Corresponding upstream source is included as `deps/pawnio-modules-0.2.11/source.zip` in the runtime package. Extract it for the upstream sources, license headers, build instructions and build configuration. The same immutable source archive URL and all SHA-256 hashes are recorded in `dependencies.lock.json`.
+- Both signed modules, the unmodified `COPYING` and exact corresponding `source.zip` are embedded in the standalone EXE. They are extracted to `%LOCALAPPDATA%/RedmiFanControl/runtime/pawnio-modules-0.2.11/` when connecting; “设置 / 关于 → 打开数据文件夹” also prepares this directory without accessing hardware. The ZIP additionally includes `licenses/pawnio-modules-0.2.11/{COPYING,source.zip}`. Extract source.zip for upstream sources, license headers, build instructions and build configuration. Immutable source URLs and SHA-256 hashes are recorded in `dependencies.lock.json`.
 - These modules are not relicensed under this application's MIT license. No changes to their signatures, interpreter or permissions are made.
 
 ## PawnIO / PawnIOLib

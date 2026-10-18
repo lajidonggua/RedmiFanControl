@@ -6,30 +6,33 @@ using System.Windows.Forms;
 namespace RedmiFanControl {
     sealed class CurveGraph : Control {
         public CurvePoint[] Points;
+        public bool Compact;
         public CurveGraph(){DoubleBuffered=true;BackColor=Color.White;}
         protected override void OnPaint(PaintEventArgs e){
             base.OnPaint(e);var g=e.Graphics;g.SmoothingMode=SmoothingMode.AntiAlias;
-            int left=42,top=30,w=Width-62,h=Height-72;if(w<10 || h<10)return;
+            float scale=g.DpiX/96f;
+            int left=(int)(38*scale),top=(int)((Compact?10:30)*scale),w=Width-(int)(52*scale),h=Height-(int)((Compact?39:72)*scale);if(w<10 || h<10)return;
             using(var pen=new Pen(Color.FromArgb(228,233,240))){
-                for(int i=0;i<=5;i++){int y=top+h-i*h/5;g.DrawLine(pen,left,y,left+w,y);g.DrawString((i*20)+"%",Font,Brushes.DimGray,3,y-7);}
-                for(int t=20;t<=80;t+=10){int x=left+(t-20)*w/60;g.DrawLine(pen,x,top,x,top+h);g.DrawString(t+"°",Font,Brushes.DimGray,x-10,top+h+8);}
+                for(int i=0;i<=5;i++){int y=top+h-i*h/5;g.DrawLine(pen,left,y,left+w,y);g.DrawString((i*20)+"%",Font,Brushes.DimGray,3*scale,y-7*scale);}
+                for(int t=20;t<=80;t+=10){int x=left+(t-20)*w/60;g.DrawLine(pen,x,top,x,top+h);g.DrawString(t+"°",Font,Brushes.DimGray,x-10*scale,top+h+8*scale);}
             }
-            g.DrawString("请求输出曲线（停转 / 补风规则另行生效）",Font,Brushes.DimGray,left,4);
+            if(!Compact)g.DrawString("请求输出曲线（实际输出受静音与温度规则约束）",Font,Brushes.DimGray,left,4);
             if(Points==null || Points.Length<2)return;
             var plot=new List<PointF>();
             plot.Add(new PointF(left,top+h-Points[0].Percent*h/100f));
             foreach(var p in Points)plot.Add(new PointF(left+(p.Temperature-20)*w/60f,top+h-p.Percent*h/100f));
             plot.Add(new PointF(left+w,top+h-Points[Points.Length-1].Percent*h/100f));
-            using(var line=new Pen(Color.FromArgb(33,103,200),3))g.DrawLines(line,plot.ToArray());
-            foreach(var p in Points){float x=left+(p.Temperature-20)*w/60f,y=top+h-p.Percent*h/100f;g.FillEllipse(Brushes.Teal,x-4,y-4,8,8);}
+            using(var line=new Pen(Color.FromArgb(33,103,200),3*scale))g.DrawLines(line,plot.ToArray());
+            foreach(var p in Points){float x=left+(p.Temperature-20)*w/60f,y=top+h-p.Percent*h/100f;g.FillEllipse(Brushes.Teal,x-4*scale,y-4*scale,8*scale,8*scale);}
         }
     }
     sealed class CurveEditor : Form {
         readonly DataGridView table;readonly CurveGraph graph;readonly Label feedback;readonly Button done;
         public CurvePoint[] Result;
         public CurveEditor(CurvePoint[] points){
+            SuspendLayout();AutoScaleMode=AutoScaleMode.None;
             Text="编辑温度曲线";Icon=AppBrand.WindowIcon();ClientSize=new Size(800,460);Font=new Font("Microsoft YaHei UI",9);
-            StartPosition=FormStartPosition.CenterParent;FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;AutoScaleMode=AutoScaleMode.Dpi;
+            StartPosition=FormStartPosition.CenterParent;FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;
             Controls.Add(new Label{Text="逐行填写温度和输出，不用输入冒号或分号。0% 表示请求停转。",Location=new Point(18,14),Size=new Size(760,28)});
             table=new DataGridView{Location=new Point(18,50),Size=new Size(280,294),AllowUserToAddRows=false,AllowUserToDeleteRows=false,RowHeadersVisible=false,AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.Fill,BackgroundColor=Color.White,SelectionMode=DataGridViewSelectionMode.CellSelect,MultiSelect=false};
             table.Columns.Add("temperature","温度 °C");table.Columns.Add("output","输出 %");foreach(DataGridViewColumn c in table.Columns)c.SortMode=DataGridViewColumnSortMode.NotSortable;
@@ -48,7 +51,7 @@ namespace RedmiFanControl {
             remove.Click+=delegate{if(table.CurrentCell!=null)table.Rows.RemoveAt(table.CurrentCell.RowIndex);ValidateDraft();};
             sort.Click+=delegate{try{var p=ReadRows();Array.Sort(p,delegate(CurvePoint a,CurvePoint b){return a.Temperature.CompareTo(b.Temperature);});table.Rows.Clear();foreach(var point in p)table.Rows.Add(point.Temperature,point.Percent);}catch(Exception ex){feedback.Text=ex.Message;}ValidateDraft();};
             done.Click+=delegate{try{table.EndEdit();Result=ReadRows();ControlPolicy.ValidateCurve(Result);DialogResult=DialogResult.OK;Close();}catch(Exception ex){feedback.Text=ex.Message;}};
-            Disposed+=delegate{Icon.Dispose();};ValidateDraft();
+            Disposed+=delegate{Icon.Dispose();};ValidateDraft();ResumeLayout(false);UiScale.Apply(this,new Size(800,460),new Size(800,460));
         }
         CurvePoint[] ReadRows(){
             var p=new List<CurvePoint>();
