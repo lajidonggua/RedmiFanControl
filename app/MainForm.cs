@@ -13,6 +13,7 @@ namespace RedmiFanControl {
         Frame last;double low=double.MaxValue,high=double.MinValue;int peak1,peak2;
         bool closing,approved,captured; int tick;
         Message testCommand;
+        static readonly int[] PresetValues={30,40,50,60,80,100};
         internal bool ApplyDefaultCurveOnConnect;
         Label stateHeading,validation;Panel statePanel;
         readonly ToolTip hints=new ToolTip();readonly Stopwatch requestAge=new Stopwatch(),restartAge=new Stopwatch();
@@ -20,7 +21,7 @@ namespace RedmiFanControl {
         string reconnectProblem;
         static Color Blue=Color.FromArgb(33,103,200),Ink=Color.FromArgb(35,45,57),Muted=Color.FromArgb(100,111,125);
         public MainForm(bool isPreview){
-            preview=isPreview;Text="Redmi Fan Control · 0.8 登录自启";ClientSize=new Size(980,770);MinimumSize=Size;MaximumSize=Size;
+            preview=isPreview;Text="Redmi Fan Control · 0.8.1";ClientSize=new Size(980,770);MinimumSize=Size;MaximumSize=Size;
             StartPosition=FormStartPosition.CenterScreen;FormBorderStyle=FormBorderStyle.FixedSingle;MaximizeBox=false;
             Font=new Font("Microsoft YaHei UI",9);BackColor=Color.FromArgb(246,248,251);AutoScaleMode=AutoScaleMode.Dpi;
             Icon=AppBrand.WindowIcon();
@@ -48,7 +49,7 @@ namespace RedmiFanControl {
             InitializeStopRules(controls);
             AddLabel(controls,"预设",24,87,45,23,9,Muted,false);
             presets=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Location=new Point(74,82),Size=new Size(166,27)};
-            presets.Items.AddRange(new object[]{"手动输出 · 50%","手动输出 · 60%","手动输出 · 80%","全速 · 100%"});presets.SelectedIndex=1;controls.Controls.Add(presets);
+            foreach(int value in PresetValues)presets.Items.Add((value==100?"全速":"手动输出")+" · "+value+"%");presets.SelectedIndex=3;controls.Controls.Add(presets);
             configStatus=AddLabel(controls,"尚未保存配置",257,84,300,27,8,Muted,false);
             var advanced=Section("2. 选择模式并编辑 → 3. 点击对应的应用按钮",20,456,940,206);
             controlMode=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Location=new Point(20,43),Size=new Size(235,27)};
@@ -68,9 +69,9 @@ namespace RedmiFanControl {
             status=AddLabel(this,"正在准备温度与风扇监测…",22,741,510,25,8,Muted,false);
             updated=AddLabel(this,"",550,741,170,25,8,Muted,false);
             reconnect=Button(this,"重新连接后台",731,737,132,29,false);exit=Button(this,"退出",875,737,85,29,false);
-            slider.ValueChanged+=delegate{number.Value=slider.Value;presets.SelectedIndex=Array.IndexOf(new int[]{50,60,80,100},slider.Value);RefreshActions();};
+            slider.ValueChanged+=delegate{number.Value=slider.Value;presets.SelectedIndex=Array.IndexOf(PresetValues,slider.Value);RefreshActions();};
             number.ValueChanged+=delegate{slider.Value=(int)number.Value;};
-            presets.SelectedIndexChanged+=delegate{int[] options={50,60,80,100};if(presets.SelectedIndex>=0)slider.Value=options[presets.SelectedIndex];};
+            presets.SelectedIndexChanged+=delegate{if(presets.SelectedIndex>=0)slider.Value=PresetValues[presets.SelectedIndex];};
             controlMode.SelectedIndexChanged+=delegate{RefreshActions();};curveText.TextChanged+=delegate{RefreshActions();};rpmTarget.ValueChanged+=delegate{RefreshActions();};
             apply.Click+=delegate{ApplyManual();};automatic.Click+=delegate{Send("AUTO",0);};reconnect.Click+=delegate{Reconnect();};exit.Click+=delegate{Close();};
             var menu=new ContextMenuStrip();menu.Items.Add("显示主窗口",null,delegate{ShowMain();});
@@ -115,7 +116,7 @@ namespace RedmiFanControl {
             status.Text="请在 Windows UAC 中授权硬件读取与风扇控制…";reconnect.Enabled=false;
             try{using(var process=Process.GetCurrentProcess()){
                 worker=Program.Spawn("--worker",run,session,process.Id,process.StartTime.ToUniversalTime().Ticks,true);
-                Files.Write(Path.Combine(run,"launch.json"),new {ui_pid=process.Id,worker_pid=worker.Id,session=session,utc=DateTime.UtcNow.ToString("o"),version="0.8.0"});
+                Files.Write(Path.Combine(run,"launch.json"),new {ui_pid=process.Id,worker_pid=worker.Id,session=session,utc=DateTime.UtcNow.ToString("o"),version=Application.ProductVersion});
             }}
             catch(Exception ex){reconnectProblem="未连接（可重新授权）："+ex.Message;status.Text=reconnectProblem;reconnect.Enabled=true;}
         }
@@ -250,6 +251,10 @@ namespace RedmiFanControl {
             if(!preview)tray.Text=("CPU "+(f.CpuC.HasValue?f.CpuC.Value.ToString("0.0"):"--")+"°C | "+f.Rpm1+" / "+f.Rpm2+" RPM");
             RefreshActions();
         }
+        static bool ExitRecoveryConfirmed(Frame frame,string expectedSession){
+            return frame!=null && frame.Session==expectedSession && frame.Ended &&
+                frame.AutoConfirmed && !frame.Manual && Files.Fresh(frame.Utc,30);
+        }
         void ClosingSafe(object sender,FormClosingEventArgs args){
             if(preview)return;
             if(closing){args.Cancel=true;return;}
@@ -259,14 +264,14 @@ namespace RedmiFanControl {
                     var wait=Stopwatch.StartNew();
                     while(wait.Elapsed.TotalSeconds<8){
                         var state=Files.Read<Frame>(Path.Combine(run,"state.json"));
-                        if(state!=null && state.Session==session && state.Ended && (!state.Owned || state.AutoConfirmed))break;
-                        if(worker==null || worker.HasExited){var recovery=Files.Read<Frame>(Path.Combine(run,"guardian.json"));if(recovery!=null && recovery.Session==session && recovery.AutoConfirmed)break;}
+                        if(ExitRecoveryConfirmed(state,session))break;
+                        if(worker==null || worker.HasExited){var recovery=Files.Read<Frame>(Path.Combine(run,"guardian.json"));if(ExitRecoveryConfirmed(recovery,session))break;}
                         Files.Write(Path.Combine(run,"heartbeat.json"),new Message{Session=session,Sequence=++sequence});Application.DoEvents();System.Threading.Thread.Sleep(100);
                     }
                     var result=Files.Read<Frame>(Path.Combine(run,"state.json"));
-                    if(result!=null && result.Owned && !result.AutoConfirmed){
+                    if(!ExitRecoveryConfirmed(result,session)){
                         var recovery=Files.Read<Frame>(Path.Combine(run,"guardian.json"));
-                        if(recovery==null || !recovery.AutoConfirmed){MessageBox.Show(this,"恢复自动尚未确认。独立看护仍会继续尝试，请勿结束所有进程；请保留日志并检查系统。","恢复未确认",MessageBoxButtons.OK,MessageBoxIcon.Warning);}
+                        if(!ExitRecoveryConfirmed(recovery,session)){MessageBox.Show(this,"恢复自动尚未确认。独立看护仍会继续尝试，请勿结束所有进程；请保留日志并检查系统。","恢复未确认",MessageBoxButtons.OK,MessageBoxIcon.Warning);}
                     }
                 }
             }finally{timer.Stop();tray.Visible=false;tray.Dispose();if(worker!=null)worker.Dispose();}
@@ -289,7 +294,14 @@ namespace RedmiFanControl {
             if(testCommand==null || testCommand.Command!="SET" || testCommand.Percent!=75)throw new Exception("Apply button command");
             last.Manual=true;last.Owned=true;last.SetPercent=75;ShowFrame(last);automatic.PerformClick();
             if(testCommand.Command!="AUTO")throw new Exception("Automatic button command");
-            presets.SelectedIndex=3;if(number.Value!=100 || slider.Value!=100)throw new Exception("Preset binding");
+            for(int i=0;i<PresetValues.Length;i++){
+                presets.SelectedIndex=i;apply.PerformClick();
+                if(number.Value!=PresetValues[i] || slider.Value!=PresetValues[i] || testCommand.Command!="SET" || testCommand.Percent!=PresetValues[i])throw new Exception("Preset binding / apply");
+            }
+            var recovered=new Frame{Session="test",Utc=DateTime.UtcNow.ToString("o"),Ended=true,AutoConfirmed=true};
+            if(!ExitRecoveryConfirmed(recovered,"test") || ExitRecoveryConfirmed(null,"test") || ExitRecoveryConfirmed(recovered,"other"))throw new Exception("Exit recovery identity");
+            recovered.Manual=true;if(ExitRecoveryConfirmed(recovered,"test"))throw new Exception("Manual is not recovered");
+            recovered.Manual=false;recovered.Utc=DateTime.UtcNow.AddMinutes(-1).ToString("o");if(ExitRecoveryConfirmed(recovered,"test"))throw new Exception("Stale recovery");
             controlMode.SelectedIndex=1;rpmTarget.Value=3000;apply.PerformClick();if(testCommand.Command!="RPM" || testCommand.Rpm!=3000)throw new Exception("RPM command");
             controlMode.SelectedIndex=2;apply.PerformClick();if(testCommand.Command!="CURVE" || testCommand.Curve.Length!=6)throw new Exception("Curve command");
             controlMode.SelectedIndex=0;slider.Value=0;apply.PerformClick();if(testCommand.Command!="SET" || testCommand.Percent!=0)throw new Exception("Zero command");Hide();

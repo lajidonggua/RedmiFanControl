@@ -56,9 +56,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Package.ps1
 ## GitHub 自动构建与发布
 
 - Push 到 `main`、Pull Request、手动运行 Actions：构建 → 离线测试 → 固定依赖核验 → ZIP → Artifact。
-- 推送与程序集一致的版本标签，例如 `v0.8.0`：上述步骤成功后自动创建 **实验性 Pre-release**，附 ZIP 和 SHA256SUMS。
+- 推送与程序集一致的版本标签，例如 `v0.8.1`：上述步骤成功后自动创建 **实验性 Pre-release**，附 ZIP 和 SHA256SUMS。
+
 - 只使用 GitHub 自动提供的 `GITHUB_TOKEN`，不需要 PAT；第三方 Actions 固定到完整提交 SHA。
 - 已存在的 Release 不会被覆盖。版本不匹配、测试/哈希失败都会阻止发布。
+
+0.8.1：新增 30%／40% 固定输出预设；关闭窗口时检查本次会话的新鲜自动恢复确认，状态缺失或未确认会提醒。最小化仍驻留托盘，点击“×”退出并恢复系统自动。
 
 首次发布步骤见 [发布指南](docs/PUBLISHING.md)。本地准备好工作流不等于它已经在你的 GitHub 账号上运行成功。
 

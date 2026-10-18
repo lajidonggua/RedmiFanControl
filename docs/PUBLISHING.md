@@ -14,15 +14,14 @@ git push -u origin main
 
 由 Git / GitHub Desktop 的正常登录流程授权，不要把访问令牌粘进代码、终端参数或聊天。
 也可以用 GitHub Desktop 的 Add existing repository → Publish repository。
-本任务只创建本地仓库，没有替你创建远程仓库或推送。
 
 ## 首个实验发布
 
 确认 main 的 Actions 成功后，推送与 `app/AssemblyInfo.cs` 一致的标签：
 
 ```powershell
-git tag v0.8.0
-git push origin v0.8.0
+git tag v0.8.1
+git push origin v0.8.1
 ```
 
 Actions 会构建和执行纯离线测试，下载固定 SHA-256 的官方模块/对应源码，打包 Windows x64 ZIP，然后创建实验性 Pre-release。
