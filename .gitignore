@@ -1,0 +1,23 @@
+# Local hardware state and user preferences must never be committed.
+runs/
+config/*.json
+!config/fan-control.example.json
+config/*.bak
+app/bin*/
+app/selftest*
+app/preview*.png
+app/curve-editor*.png
+deps/
+.cache/
+dist*/
+*.user
+*.suo
+*.log
+*.tmp
+__pycache__/
+.vs/
+.env
+.env.*
+*.pfx
+*.pem
+*.key

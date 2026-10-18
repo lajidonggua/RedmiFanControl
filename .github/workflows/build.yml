@@ -1,0 +1,77 @@
+name: Windows build and release
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build and run offline-only tests
+        shell: powershell
+        run: .\scripts\Test.ps1
+      - name: Check tag matches assembly version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: powershell
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $version = ([Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path 'app/bin/RedmiFanControl.exe')).ProductVersion -split '\.')[0..2] -join '.'
+          if ($env:RELEASE_TAG -notmatch '^v(\d+\.\d+\.\d+)(-[A-Za-z0-9.-]+)?$' -or $Matches[1] -ne $version) { throw 'Tag must match app/AssemblyInfo.cs version' }
+      - name: Restore pinned official dependencies and source
+        shell: powershell
+        run: .\scripts\Restore-Dependencies.ps1
+      - name: Package Windows x64 portable app
+        shell: powershell
+        run: .\scripts\Package.ps1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: RedmiFanControl-windows-x64
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+  release:
+    if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
+    needs: build
+    runs-on: windows-2022
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download verified build artifact
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          gh run download $env:RUN_ID --name RedmiFanControl-windows-x64 --dir artifacts
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact download failed' }
+          $line = (Get-Content artifacts/SHA256SUMS.txt).Trim()
+          $expected, $name = $line -split '\s+', 2
+          $actual = (Get-FileHash (Join-Path artifacts $name) -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw 'Release artifact hash mismatch' }
+      - name: Publish experimental prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $assets = @(Get-ChildItem artifacts -File | ForEach-Object FullName)
+          gh release create $env:RELEASE_TAG @assets --verify-tag --title "Redmi Fan Control $env:RELEASE_TAG" --generate-notes --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Release creation failed; existing releases are not overwritten' }

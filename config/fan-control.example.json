@@ -1,0 +1,17 @@
+{
+  "Version": 1,
+  "Mode": 2,
+  "Percent": 60,
+  "Rpm": 3000,
+  "AllowFanStop": true,
+  "StopBelowC": 50,
+  "MinimumRunningPercent": 20,
+  "Curve": [
+    {"Temperature":35,"Percent":0},
+    {"Temperature":45,"Percent":10},
+    {"Temperature":55,"Percent":20},
+    {"Temperature":65,"Percent":30},
+    {"Temperature":75,"Percent":40},
+    {"Temperature":80,"Percent":100}
+  ]
+}
