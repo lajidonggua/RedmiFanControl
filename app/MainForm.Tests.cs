@@ -94,6 +94,8 @@ namespace RedmiFanControl {
                 presets.SelectedIndex=i;apply.PerformClick();
                 if(number.Value!=PresetValues[i] || slider.Value!=PresetValues[i] || testCommand.Command!="SET" || testCommand.Percent!=PresetValues[i])throw new Exception("Preset binding / apply");
             }
+            int quietIndex=Array.IndexOf(PresetValues,20);
+            if(quietIndex<0 || Convert.ToString(presets.Items[quietIndex]).IndexOf("低速静音",StringComparison.Ordinal)<0)throw new Exception("20 percent preset");
             var recovered=new Frame{Session="test",Utc=DateTime.UtcNow.ToString("o"),Ended=true,AutoConfirmed=true};
             if(!ExitRecoveryConfirmed(recovered,"test") || ExitRecoveryConfirmed(null,"test") || ExitRecoveryConfirmed(recovered,"other"))throw new Exception("Exit recovery identity");
             recovered.Manual=true;if(ExitRecoveryConfirmed(recovered,"test"))throw new Exception("Manual is not recovered");

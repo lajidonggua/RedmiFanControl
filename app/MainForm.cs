@@ -16,7 +16,7 @@ namespace RedmiFanControl {
         UiPreferences uiPreferences;
         bool hadLiveConnection,resumePending;int autoReconnectAttempts;DateTime nextAutoReconnectUtc=DateTime.MinValue;
         Message testCommand;
-        static readonly int[] PresetValues={0,30,40,50,60,80,100};
+        static readonly int[] PresetValues={0,20,30,40,50,60,80,100};
         internal bool ApplyDefaultCurveOnConnect;
         Label stateHeading,validation;Panel statePanel;
         readonly ToolTip hints=new ToolTip();readonly Stopwatch requestAge=new Stopwatch(),restartAge=new Stopwatch();

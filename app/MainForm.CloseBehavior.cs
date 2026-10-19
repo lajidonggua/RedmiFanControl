@@ -44,19 +44,19 @@ namespace RedmiFanControl {
             public ClosePrompt(CloseBehavior defaultBehavior){
                 Text="关闭 Redmi Fan Control";Icon=AppBrand.WindowIcon();StartPosition=FormStartPosition.CenterParent;
                 FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;ShowInTaskbar=false;
-                ClientSize=new Size(500,282);Font=new Font("Microsoft YaHei UI",9);BackColor=Color.White;
-                AddLabel(this,"要如何处理当前窗口？",24,20,440,30,14,Ink,true);
-                AddLabel(this,"直接点击 × 容易误退出。隐藏到托盘会继续监测/调速；退出前会等待恢复系统自动。",24,57,450,42,9,Muted,false);
-                hide=new RadioButton{Text="隐藏到系统托盘，后台继续运行",Location=new Point(28,112),Size=new Size(420,28),Checked=true};Controls.Add(hide);
-                AddLabel(this,"下次可从托盘图标打开主窗口。",50,137,400,22,8,Muted,false);
-                exit=new RadioButton{Text="退出程序，并恢复系统自动调度",Location=new Point(28,167),Size=new Size(420,28)};Controls.Add(exit);
-                AddLabel(this,"退出会等待后台确认风扇已交回系统。",50,192,400,22,8,Muted,false);
-                remember=new CheckBox{Text="记住我的选择，下次点击 × 不再询问",Location=new Point(28,221),Size=new Size(420,24)};Controls.Add(remember);
-                var cancel=Button(this,"取消",292,252,82,30,false);cancel.DialogResult=DialogResult.Cancel;
-                var ok=Button(this,"执行",384,252,88,30,true);ok.Click+=delegate{Behavior=hide.Checked?CloseBehavior.HideToTray:CloseBehavior.Exit;DialogResult=DialogResult.OK;Close();};
+                ClientSize=new Size(560,278);Font=new Font("Microsoft YaHei UI",9);BackColor=Color.White;
+                AddLabel(this,"要如何处理当前窗口？",24,18,500,30,14,Ink,true);
+                AddLabel(this,"隐藏到托盘：后台继续监测和调速。\n退出程序：恢复系统自动调度。",24,56,510,42,9,Muted,false);
+                hide=new RadioButton{Text="隐藏到系统托盘，后台继续运行",Location=new Point(28,104),Size=new Size(470,28),Checked=true};Controls.Add(hide);
+                AddLabel(this,"下次可从托盘图标打开主窗口。",50,129,450,22,8,Muted,false);
+                exit=new RadioButton{Text="退出程序，并恢复系统自动调度",Location=new Point(28,158),Size=new Size(470,28)};Controls.Add(exit);
+                AddLabel(this,"退出会等待后台确认风扇已交回系统。",50,183,450,22,8,Muted,false);
+                remember=new CheckBox{Text="记住我的选择，下次点击 × 不再询问",Location=new Point(28,211),Size=new Size(470,24)};Controls.Add(remember);
+                var cancel=Button(this,"取消",348,242,92,30,false);cancel.DialogResult=DialogResult.Cancel;
+                var ok=Button(this,"执行",448,242,92,30,true);ok.Click+=delegate{Behavior=hide.Checked?CloseBehavior.HideToTray:CloseBehavior.Exit;DialogResult=DialogResult.OK;Close();};
                 AcceptButton=ok;CancelButton=cancel;Behavior=CloseBehavior.HideToTray;
                 if(defaultBehavior==CloseBehavior.Exit){hide.Checked=false;exit.Checked=true;Behavior=CloseBehavior.Exit;}
-                Disposed+=delegate{Icon.Dispose();};UiScale.Apply(this,new Size(500,282),new Size(500,282));
+                Disposed+=delegate{Icon.Dispose();};UiScale.Apply(this,new Size(560,278),new Size(560,278));
             }
         }
     }

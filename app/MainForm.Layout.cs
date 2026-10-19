@@ -41,7 +41,7 @@ namespace RedmiFanControl {
             var percentUnit=AddLabel(percentPanel,"%",474,15,30,23,10,Muted,false);
             AddLabel(percentPanel,"快捷预设",8,65,80,24,9,Muted,false);
             presets=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Location=new Point(96,60),Size=new Size(181,28)};
-            foreach(int value in PresetValues)presets.Items.Add(value==0?"0% · 请求停转":value+"%" );presets.SelectedIndex=4;percentPanel.Controls.Add(presets);
+            foreach(int value in PresetValues)presets.Items.Add(value==0?"0% · 请求停转":value==20?"20% · 低速静音":value+"%" );presets.SelectedIndex=Array.IndexOf(PresetValues,60);percentPanel.Controls.Add(presets);
             var percentHint=AddLabel(percentPanel,"实际输出受右侧规则约束",294,65,225,25,8,Muted,false);
             rpmPanel=new Panel{Location=percentPanel.Location,Size=percentPanel.Size};control.Controls.Add(rpmPanel);
             AddLabel(rpmPanel,"目标转速",8,14,100,26,11,Ink,true);
