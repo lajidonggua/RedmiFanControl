@@ -26,6 +26,14 @@ namespace RedmiFanControl {
             return new Frame{Session=session,Utc=DateTime.UtcNow.ToString("o"),Connected=true,CpuC=t,Manual=s.Manual,Rpm1=s.Rpm1,Rpm2=s.Rpm2,
                 Target1=s.Target1,Target2=s.Target2,Output1=StrictSuperIoProbe.RawToPercent(s.Pwm1),Output2=StrictSuperIoProbe.RawToPercent(s.Pwm2),AutoConfirmed=!s.Manual};
         }
+        public Frame SnapshotWithoutTemperature(string session,string error){
+            var s=State();
+            return new Frame{Session=session,Utc=DateTime.UtcNow.ToString("o"),Connected=true,CanControl=false,Manual=s.Manual,
+                Rpm1=s.Rpm1,Rpm2=s.Rpm2,Target1=s.Target1,Target2=s.Target2,
+                Output1=StrictSuperIoProbe.RawToPercent(s.Pwm1),Output2=StrictSuperIoProbe.RawToPercent(s.Pwm2),
+                AutoConfirmed=!s.Manual,Error=error,Status="等待温度传感器恢复"};
+        }
+        public bool AutomaticConfirmed(){return !State().Manual;}
         public void Dispose(){if(temp!=null)temp.Dispose();if(fan!=null)fan.Dispose();}
     }
     static class Backend {
@@ -50,12 +58,23 @@ namespace RedmiFanControl {
         }
         static int Worker(string run,string session,long parent,long parentStart){
             string events=Path.Combine(run,"events.jsonl"),ownerPath=Path.Combine(run,"ownership.json");
-            Ownership owned=null; Hardware hw=null; Process guard=null; bool fault=false;int ack=0;Frame frame=null;
+            Ownership owned=null; Hardware hw=null; Process guard=null; bool fault=false;bool sensorUnavailable=false;int ack=0;Frame frame=null;
             string faultText=null; var lease=new Lease();var startup=Stopwatch.StartNew();var output=Stopwatch.StartNew();
             ControlPolicy policy=null;
             var guardianLease=new FrameLease(3);string activeSettings=null;
             try {
-                hw=new Hardware();frame=hw.Snapshot(session);Files.Write(StatePath(run),frame);
+                hw=new Hardware();
+                try{frame=hw.Snapshot(session);}
+                catch(Exception ex){
+                    // Display sleep/resume can briefly invalidate the AMD thermal
+                    // read while the fan controller itself is still accessible.
+                    // Keep this worker alive and wait for a valid sample instead
+                    // of turning a transient wake-up state into a dead session.
+                    sensorUnavailable=true;faultText="唤醒后温度暂不可用："+ex.Message;Files.Event(events,"sensor_wait",ex.Message);
+                    try{frame=hw.SnapshotWithoutTemperature(session,faultText);}
+                    catch(Exception stateEx){frame=new Frame{Session=session,Utc=DateTime.UtcNow.ToString("o"),Connected=true,CanControl=false,Error=faultText,Status="等待温度传感器恢复"};Files.Event(events,"state_wait",stateEx.Message);}
+                }
+                Files.Write(StatePath(run),frame);
                 using(var current=Process.GetCurrentProcess())guard=Program.Spawn("--guardian",run,session,current.Id,current.StartTime.ToUniversalTime().Ticks,false);
                 Files.Event(events,"started",new {guardian_pid=guard.Id,parent=parent});
                 while(true){
@@ -96,7 +115,9 @@ namespace RedmiFanControl {
                     if(output.ElapsedMilliseconds>=500){
                         try{
                             int percent=frame==null?0:frame.SetPercent;
-                            frame=hw.Snapshot(session);frame.SetPercent=percent;
+                            bool hadSensorError=sensorUnavailable;
+                            frame=hw.Snapshot(session);frame.SetPercent=percent;sensorUnavailable=false;
+                            if(hadSensorError && !fault)faultText=null;
                             if(owned!=null && owned.Active && (!frame.Manual || frame.Target1!=owned.NewRaw || frame.Target2!=owned.NewRaw)){
                                 policy=null;
                                 owned.Active=false;Files.Write(ownerPath,owned);
@@ -118,15 +139,19 @@ namespace RedmiFanControl {
                             }
                             frame.Owned=owned!=null && owned.Active;
                             frame.ActiveSettingsKey=frame.Owned && policy!=null && !fault?activeSettings:null;
-                            frame.CanControl=!fault && guardReady && uiLease && frame.CpuC<ThermalLimits.EmergencyC && (!frame.Manual || frame.Owned);
+                            frame.CanControl=!fault && !sensorUnavailable && guardReady && uiLease && frame.CpuC<ThermalLimits.EmergencyC && (!frame.Manual || frame.Owned);
                             frame.Ack=ack;frame.Error=faultText;
-                            frame.Status=fault?"安全保护 · 仅监测":frame.Manual?(frame.Owned?(frame.ControlMode=="RPM"?"目标转速（以较慢一路为准）":frame.ControlMode=="CURVE"?"CPU 温度曲线":"手动百分比 · 两路联动"):"其他程序控制 · 仅监测"):"系统自动温控";
+                            frame.Status=sensorUnavailable?"等待温度传感器恢复":fault?"安全保护 · 仅监测":frame.Manual?(frame.Owned?(frame.ControlMode=="RPM"?"目标转速（以较慢一路为准）":frame.ControlMode=="CURVE"?"CPU 温度曲线":"手动百分比 · 两路联动"):"其他程序控制 · 仅监测"):"系统自动温控";
                             Files.Write(StatePath(run),frame);output.Restart();
                         }catch(Exception ex){
-                            policy=null;fault=true;faultText="控制保护已停止调速："+ex.Message;
+                            policy=null;sensorUnavailable=true;
+                            if(owned!=null && owned.Active){fault=true;faultText="控制保护已停止调速："+ex.Message;}
+                            else faultText="温度暂不可用，等待唤醒后恢复："+ex.Message;
                             Files.Event(events,"sensor_error",ex.Message);
                             if(owned!=null && owned.Active)Recover(hw,owned,ownerPath,events);
-                            frame=new Frame{Session=session,Utc=DateTime.UtcNow.ToString("o"),Error=faultText,Status="传感器不可用"};
+                            try{frame=hw.SnapshotWithoutTemperature(session,faultText);}
+                            catch(Exception stateEx){frame=new Frame{Session=session,Utc=DateTime.UtcNow.ToString("o"),Connected=true,Error=faultText,Status="等待温度传感器恢复"};Files.Event(events,"state_wait",stateEx.Message);}
+                            frame.CanControl=false;
                             Files.Write(StatePath(run),frame);output.Restart();
                         }
                     }
@@ -139,7 +164,18 @@ namespace RedmiFanControl {
             finally{
                 bool restored=false;
                 if(hw!=null){
-                    try{if(owned!=null && owned.Active)Recover(hw,owned,ownerPath,events);frame=hw.Snapshot(session);restored=!frame.Manual;}
+                    try{
+                        if(owned!=null && owned.Active)Recover(hw,owned,ownerPath,events);
+                        try{frame=hw.Snapshot(session);}
+                        catch(Exception ex){
+                            // Automatic recovery only needs the fan state. Do not
+                            // report recovery failure merely because the thermal
+                            // sensor is still settling after display wake.
+                            if(faultText==null)faultText="温度暂不可用："+ex.Message;
+                            try{frame=hw.SnapshotWithoutTemperature(session,faultText);}catch{}
+                        }
+                        restored=hw.AutomaticConfirmed();
+                    }
                     catch(Exception ex){faultText="恢复自动未确认："+ex.Message;Files.TryEvent(events,"recovery_error",ex.ToString());}
                     hw.Dispose();
                 }

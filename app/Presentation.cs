@@ -14,6 +14,8 @@ namespace RedmiFanControl {
         public static ControlNotice Describe(Frame f,Message draft,bool waiting,double waitSeconds){
             if(!IsLive(f))return new ControlNotice("未连接 · 设置尚未应用",(f==null?null:f.Error)??"请点击“连接硬件”。没有有效实时数据时显示 --。",NoticeTone.Warning);
             if(!f.CanControl){
+                if(f.Connected && !f.Ended && !f.CpuC.HasValue && f.Error!=null)
+                    return new ControlNotice("等待温度传感器恢复",f.Error+" 后台会自动重试；恢复有效温度后即可继续连接。",NoticeTone.Warning);
                 if(f.Error!=null)return new ControlNotice(f.AutoConfirmed?"保护已停止调速 · 已恢复系统自动":"保护已停止调速 · 恢复尚未确认",f.Error+" 重新连接后可再次手动应用。",NoticeTone.Error);
                 if(f.Manual && !f.Owned)return new ControlNotice("其他程序正在控制 · 仅监测","请先让其他风扇控制程序恢复自动，避免同时接管。",NoticeTone.Warning);
                 if(f.CpuC>=ThermalLimits.EmergencyC)return new ControlNotice("温度达到 95°C · 保持系统自动","降温并重新连接后再应用设置。",NoticeTone.Warning);

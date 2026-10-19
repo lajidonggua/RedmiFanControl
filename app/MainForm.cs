@@ -12,6 +12,7 @@ namespace RedmiFanControl {
         ComboBox controlMode;NumericUpDown rpmTarget;TextBox curveText;
         Frame last;double low=double.MaxValue,high=double.MinValue;int peak1,peak2;
         bool closing,approved,captured; int tick;
+        bool hadLiveConnection,resumePending;int autoReconnectAttempts;DateTime nextAutoReconnectUtc=DateTime.MinValue;
         Message testCommand;
         static readonly int[] PresetValues={0,30,40,50,60,80,100};
         internal bool ApplyDefaultCurveOnConnect;
@@ -153,6 +154,7 @@ namespace RedmiFanControl {
                 var frame=Files.Read<Frame>(Path.Combine(run,"state.json"));
                 if(frame!=null && frame.Session==session){
                     last=frame;ShowFrame(frame);
+                    if(resumePending && Presentation.IsLive(frame) && frame.CpuC.HasValue){resumePending=false;autoReconnectAttempts=0;}
                     if(ApplyDefaultCurveOnConnect && frame.CanControl && Files.Fresh(frame.Utc,3)){
                         ApplyDefaultCurveOnConnect=false;
                         controlMode.SelectedIndex=2;
@@ -165,12 +167,18 @@ namespace RedmiFanControl {
                 if(ExitRecoveryConfirmed(last,session))recoveryConfirmed=true;
                 if(workerDead){var recovery=Files.Read<Frame>(Path.Combine(run,"guardian.json"));if(ExitRecoveryConfirmed(recovery,session))recoveryConfirmed=true;}
                 if(closing){RefreshActions();CheckShutdown();return;}
+                if(workerDead && recoveryConfirmed && hadLiveConnection && !restarting && DateTime.UtcNow>=nextAutoReconnectUtc){
+                    if(autoReconnectAttempts<3){
+                        ++autoReconnectAttempts;nextAutoReconnectUtc=DateTime.UtcNow.AddSeconds(10);
+                        reconnectProblem="息屏/唤醒后后台已恢复，正在自动重新连接…";status.Text=reconnectProblem;Connect();
+                    }else reconnectProblem="息屏/唤醒后的自动重连已重试 3 次，请点击“重新连接”并确认 UAC。";
+                }
                 if(restarting){
                     if(workerDead && (recoveryConfirmed || !mayOwnHardware)){Connect();return;}
                     if(restartAge.Elapsed.TotalSeconds>12){restarting=false;reconnectProblem="旧后台退出或自动恢复尚未确认，未启动第二个控制器；请检查日志。";status.Text=reconnectProblem;}
                 }
                 if(!Presentation.IsLive(last) || (workerDead && !last.Ended)){
-                    if(workerDead && last!=null && !last.Ended){last.Connected=false;last.CanControl=false;}
+                    if(workerDead && (last==null || !last.Ended)){if(last==null)last=new Frame{Session=session};last.Connected=false;last.CanControl=false;}
                     ClearValues();apply.Enabled=automatic.Enabled=slider.Enabled=number.Enabled=false;mode.Text="连接中断";status.Text="监测数据暂不可用，不显示旧值或零值。";
                     var recovery=Files.Read<Frame>(Path.Combine(run,"guardian.json"));
                     if(recovery!=null && recovery.Session==session && recovery.AutoConfirmed && recovery.Ended){status.Text="独立看护已确认恢复自动；请重新连接。";}
@@ -191,6 +199,8 @@ namespace RedmiFanControl {
                 ClearValues();apply.Enabled=automatic.Enabled=slider.Enabled=number.Enabled=false;
                 mode.Text=f.AutoConfirmed?"已恢复自动":"未连接";status.Text=f.Error??f.Status??"正在连接…";return;
             }
+            hadLiveConnection=true;
+            if(f.CpuC.HasValue)autoReconnectAttempts=0;
             peak1=Math.Max(peak1,f.Rpm1);peak2=Math.Max(peak2,f.Rpm2);
             string text=f.Manual?(f.Owned?(f.ControlMode=="RPM"?"目标 "+f.RequestedRpm+" RPM":f.ControlMode=="CURVE"?"温度曲线 "+f.SetPercent+"%":"手动 "+f.SetPercent+"% "):"外部控制"):"系统自动";
             fans.Rows[0].SetValues("风扇 1",f.Rpm1+" RPM",f.Output1.ToString("0.#")+"%",Presentation.FanState(f.Rpm1,f.Output1,f.Manual));
@@ -203,6 +213,17 @@ namespace RedmiFanControl {
             status.Text=f.Error??f.Status??"已连接";DateTime received;updated.Text=DateTime.TryParse(f.Utc,out received)?"更新 "+received.ToLocalTime().ToString("HH:mm:ss"):"";
             if(!preview)tray.Text=("CPU "+(f.CpuC.HasValue?f.CpuC.Value.ToString("0.0"):"--")+"°C | "+f.Rpm1+" / "+f.Rpm2+" RPM");
             RefreshActions();
+        }
+        protected override void WndProc(ref System.Windows.Forms.Message message){
+            const int WM_POWERBROADCAST=0x0218,PBT_APMRESUMEAUTOMATIC=0x0012,PBT_APMRESUMESUSPEND=0x0007;
+            if(message.Msg==WM_POWERBROADCAST && (message.WParam.ToInt32()==PBT_APMRESUMEAUTOMATIC || message.WParam.ToInt32()==PBT_APMRESUMESUSPEND)){
+                try{BeginInvoke(new Action(MarkResumePending));}catch{}
+            }
+            base.WndProc(ref message);
+        }
+        void MarkResumePending(){
+            if(preview || closing)return;
+            resumePending=true;reconnectProblem=null;status.Text="正在恢复息屏后的硬件连接…";RefreshActions();
         }
         public void SavePreview(string path,string scenario="--preview"){
             if(scenario=="--preview-maximized")Opacity=0;

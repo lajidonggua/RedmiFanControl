@@ -66,10 +66,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Package.ps1
 ## GitHub 自动构建与发布
 
 - Push 到 `main`、Pull Request、手动运行 Actions：固定依赖核验 → 构建 → 离线测试 → 独立 EXE / ZIP 验证 → Artifact。
-- 推送与程序集一致的版本标签，例如 `v0.9.2`：上述步骤成功后自动创建 **实验性 Pre-release**，附 EXE、ZIP 和 SHA256SUMS。
+- 推送与程序集一致的版本标签，例如 `v0.9.3`：上述步骤成功后自动创建 **实验性 Pre-release**，附 EXE、ZIP 和 SHA256SUMS。
 
 - 只使用 GitHub 自动提供的 `GITHUB_TOKEN`，不需要 PAT；第三方 Actions 固定到完整提交 SHA。
 - 已存在的 Release 不会被覆盖。版本不匹配、测试/哈希失败都会阻止发布。
+
+0.9.3：修复息屏/唤醒后的温度瞬时无效导致后台退出、误报自动恢复失败的问题；增加后台等待有效温度、系统唤醒处理和恢复自动后的自动重连。
 
 0.9.2：修正小屏构建机上的布局测试，按内容坐标比较控件，避免把滚动位置变化误判成布局漂移。延续 0.9.1 的窗口布局修复。
 

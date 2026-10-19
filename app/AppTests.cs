@@ -69,6 +69,8 @@ namespace RedmiFanControl {
             Require(ConfigurationStore.LoadWithMigration(destination,legacy,out note).Percent==40,"Migration must not overwrite new settings");
             var live=new Frame{Utc=DateTime.UtcNow.ToString("o"),Connected=true,CanControl=true,CpuC=38};
             Require(Presentation.Describe(live,null,false,0).Detail.Contains("0 RPM 是有效读数"),"Automatic stop explanation");
+            var waking=new Frame{Utc=DateTime.UtcNow.ToString("o"),Connected=true,CanControl=false,Manual=false,Error="唤醒后温度暂不可用：Implausible CPU temperature; load prohibited.",Status="等待温度传感器恢复"};
+            Require(Presentation.Describe(waking,null,false,0).Title=="等待温度传感器恢复","Wake-up sensor retry presentation");
             Require(Presentation.FanState(0,0,false)=="系统停转" && Presentation.FanState(0,30,true)=="等待起转" && Presentation.FanState(500,0,false)=="减速中","Stopped vs spinning up vs coast-down");
             live.Utc=DateTime.UtcNow.AddSeconds(-5).ToString("o");Require(!Presentation.IsLive(live),"Stale telemetry must not look live");
             Require(Presentation.Describe(live,null,false,0).Title.Contains("未连接"),"Stale telemetry explanation");
