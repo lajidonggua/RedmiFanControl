@@ -6,6 +6,7 @@ namespace RedmiFanControl {
         public static readonly string DataRoot=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"RedmiFanControl");
         public static string Runs { get {return Path.Combine(DataRoot,"runs");} }
         public static string Configuration { get {return Path.Combine(DataRoot,"config","fan-control.json");} }
+        public static string UiPreferences { get {return Path.Combine(DataRoot,"config","ui-preferences.json");} }
         public static string Modules { get {return Path.Combine(DataRoot,"runtime","pawnio-modules-0.2.11");} }
         public static string DriverLibrary { get {return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"PawnIO","PawnIOLib.dll");} }
         public static string LegacyConfiguration {

@@ -12,6 +12,8 @@ namespace RedmiFanControl {
         ComboBox controlMode;NumericUpDown rpmTarget;TextBox curveText;
         Frame last;double low=double.MaxValue,high=double.MinValue;int peak1,peak2;
         bool closing,approved,captured; int tick;
+        bool directCloseRequested;
+        UiPreferences uiPreferences;
         bool hadLiveConnection,resumePending;int autoReconnectAttempts;DateTime nextAutoReconnectUtc=DateTime.MinValue;
         Message testCommand;
         static readonly int[] PresetValues={0,30,40,50,60,80,100};
@@ -28,16 +30,17 @@ namespace RedmiFanControl {
             number.ValueChanged+=delegate{slider.Value=(int)number.Value;};
             presets.SelectedIndexChanged+=delegate{if(presets.SelectedIndex>=0)slider.Value=PresetValues[presets.SelectedIndex];};
             controlMode.SelectedIndexChanged+=delegate{RefreshActions();};curveText.TextChanged+=delegate{RefreshActions();};rpmTarget.ValueChanged+=delegate{RefreshActions();};
-            apply.Click+=delegate{ApplyManual();};automatic.Click+=delegate{Send("AUTO",0);};reconnect.Click+=delegate{Reconnect();};exit.Click+=delegate{Close();};
+            apply.Click+=delegate{ApplyManual();};automatic.Click+=delegate{Send("AUTO",0);};reconnect.Click+=delegate{Reconnect();};exit.Click+=delegate{RequestExit();};
             var menu=new ContextMenuStrip();menu.Items.Add("显示主窗口",null,delegate{ShowMain();});
-            menu.Items.Add("恢复自动模式",null,delegate{Send("AUTO",0);});menu.Items.Add("退出并恢复自动",null,delegate{Close();});
+            menu.Items.Add("恢复自动模式",null,delegate{Send("AUTO",0);});menu.Items.Add("退出并恢复自动",null,delegate{RequestExit();});
             tray=new NotifyIcon{Icon=Icon,Text="Redmi Fan Control",ContextMenuStrip=menu,Visible=!preview};
             tray.DoubleClick+=delegate{ShowMain();};
-            Resize+=delegate{if(WindowState==FormWindowState.Minimized)Hide();};
+            Resize+=delegate{if(WindowState==FormWindowState.Minimized && !closing)HideToTray();};
             timer.Interval=500;timer.Tick+=delegate{Poll();};
-            Shown+=delegate{if(!preview){timer.Start();if(StartInTray){ShowInTaskbar=false;BeginInvoke(new Action(Hide));stateHeading.Text="登录自启 · 尚未连接硬件";note.Text="需要监测或调速时点击“重新连接后台”，正常确认 UAC；没有自动应用手动设置。";status.Text="托盘待命 · 系统自动温控";}else BeginInvoke(new Action(Connect));}};
+            Shown+=delegate{if(!preview){timer.Start();if(StartInTray || uiPreferences.LastInTray){BeginInvoke(new Action(HideToTray));stateHeading.Text="托盘待命 · 尚未连接硬件";note.Text="需要监测或调速时点击“显示主窗口”，再连接后台；没有自动应用手动设置。";status.Text="托盘待命 · 系统自动温控";}else{MarkVisible();BeginInvoke(new Action(Connect));}}};
             FormClosing+=ClosingSafe;
             LoadConfigurationUi();
+            LoadUiPreferences();
             RefreshActions();
         }
         Panel Section(string title,int x,int y,int width,int height){

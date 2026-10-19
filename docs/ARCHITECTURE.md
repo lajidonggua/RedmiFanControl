@@ -26,6 +26,7 @@
 | `app/Backend.cs` | 身份核验、命令执行、周期采样、独立恢复、传感器适配 |
 | `app/Protocol.cs` | JSON DTO、原子文件交换、心跳租约、控制所有权 |
 | `app/Autostart*.cs` | 当前用户登录启动项与 UI；自启只到托盘，不接管 |
+| `app/UiPreferences.cs` / `app/MainForm.CloseBehavior.cs` | 关闭行为选择、托盘/窗口启动状态持久化；与风扇配置分离 |
 | `app/AppTests.cs` | 纯模拟策略、UI、配置、心跳、自启开关的回归 |
 | `app/SmokeTest.cs` | 明确调用才执行的真机诊断；CI 不调用 |
 | `tools/StrictSuperIoProbe.cs` | 原生绑定、严格结果长度/状态检查、固定只读路径 |

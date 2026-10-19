@@ -61,6 +61,22 @@ namespace RedmiFanControl {
             if(!finishClosing || !recoveryConfirmed)throw new Exception("Confirmed automatic recovery did not complete close");
             Application.DoEvents();
         }
+        internal void VerifyCloseBehaviorUi(){
+            if(!preview)throw new InvalidOperationException("Close behavior test must use memory only.");
+            ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;Location=new Point(-2500,-2500);Show();Application.DoEvents();
+            uiPreferences.CloseBehavior=CloseBehavior.Ask;uiPreferences.LastInTray=false;HideToTray();
+            if(!uiPreferences.LastInTray || ShowInTaskbar || Visible)throw new Exception("Hide to tray preference/state");
+            ShowMain();
+            if(uiPreferences.LastInTray || !ShowInTaskbar || !Visible)throw new Exception("Show main preference/state");
+            uiPreferences.CloseBehavior=CloseBehavior.Exit;uiPreferences.LastInTray=false;
+            if(CloseBehaviorText(CloseBehavior.Ask)!="每次点击 × 时询问" || CloseBehaviorText(CloseBehavior.HideToTray).IndexOf("托盘",StringComparison.Ordinal)<0 || CloseBehaviorText(CloseBehavior.Exit).IndexOf("退出",StringComparison.Ordinal)<0)throw new Exception("Close behavior labels");
+            using(var prompt=new ClosePrompt(CloseBehavior.Ask)){
+                if(prompt.Behavior!=CloseBehavior.HideToTray || prompt.Remember)throw new Exception("Close prompt defaults");
+                foreach(Control child in prompt.Controls)if(!prompt.ClientRectangle.Contains(child.Bounds))throw new Exception("Close prompt clipped");
+            }
+            using(var prompt=new ClosePrompt(CloseBehavior.Exit))if(prompt.Behavior!=CloseBehavior.Exit)throw new Exception("Close prompt remembered exit");
+            Hide();
+        }
         internal void VerifyUiContract(){
             if(!preview)throw new InvalidOperationException("UI contract test must not use real hardware.");
             ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;Location=new Point(-2500,-2500);Show();Application.DoEvents();

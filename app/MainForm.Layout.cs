@@ -77,17 +77,25 @@ namespace RedmiFanControl {
             InitializeResponsiveLayout();
         }
         void ShowSettings(){
-            using(var dialog=new Form{Text="设置与关于",Icon=AppBrand.WindowIcon(),ClientSize=new Size(570,300),Font=Font,StartPosition=FormStartPosition.CenterParent,FormBorderStyle=FormBorderStyle.FixedDialog,MaximizeBox=false,MinimizeBox=false}){
+            using(var dialog=new Form{Text="设置与关于",Icon=AppBrand.WindowIcon(),ClientSize=new Size(570,335),Font=Font,StartPosition=FormStartPosition.CenterParent,FormBorderStyle=FormBorderStyle.FixedDialog,MaximizeBox=false,MinimizeBox=false}){
                 dialog.SuspendLayout();
                 AddLabel(dialog,"Redmi Fan Control  "+Application.ProductVersion,20,18,530,30,14,Ink,true);
-                AddLabel(dialog,"双击 EXE 即可启动。风扇读写需要官方 PawnIO 驱动。\n最小化留在托盘；点击 × 或退出会恢复本程序接管的风扇。",20,59,530,55,9,Muted,false);
+                AddLabel(dialog,"双击 EXE 即可启动。风扇读写需要官方 PawnIO 驱动。\n最小化和隐藏会留在托盘；选择退出时才会恢复系统自动。",20,59,530,55,9,Muted,false);
                 AddLabel(dialog,"配置、日志、内嵌模块及第三方许可证保存在：\n"+AppPaths.DataRoot,20,121,530,66,9,Ink,false);
-                var open=Button(dialog,"打开数据文件夹",20,210,164,36,false);
+                AddLabel(dialog,"点击 × 的行为",20,198,135,25,9,Muted,false);
+                var closeBehavior=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Location=new Point(158,194),Size=new Size(390,29)};
+                closeBehavior.Items.AddRange(new object[]{CloseBehaviorText(CloseBehavior.Ask),CloseBehaviorText(CloseBehavior.HideToTray),CloseBehaviorText(CloseBehavior.Exit)});
+                closeBehavior.SelectedIndex=uiPreferences==null?(int)CloseBehavior.Ask:(int)uiPreferences.CloseBehavior;dialog.Controls.Add(closeBehavior);
+                AddLabel(dialog,"选择后立即保存；也可以恢复为每次询问。",158,226,390,22,8,Muted,false);
+                closeBehavior.SelectedIndexChanged+=delegate{
+                    if(uiPreferences==null)return;uiPreferences.CloseBehavior=(CloseBehavior)closeBehavior.SelectedIndex;SaveUiPreferences();
+                };
+                var open=Button(dialog,"打开数据文件夹",20,278,164,36,false);
                 open.Click+=delegate{if(preview)return;try{RuntimeModules.Prepare(AppPaths.Modules);DirectoryOpen(AppPaths.DataRoot);}catch(Exception ex){MessageBox.Show(dialog,ex.Message,"无法打开数据目录");}};
-                var driver=Button(dialog,"PawnIO 官方网站",198,210,174,36,false);
+                var driver=Button(dialog,"PawnIO 官方网站",198,278,174,36,false);
                 driver.Click+=delegate{if(!preview)Process.Start(new ProcessStartInfo("https://pawnio.eu/"){UseShellExecute=true});};
-                var done=Button(dialog,"关闭",390,210,158,36,true);done.Click+=delegate{dialog.Close();};
-                dialog.Disposed+=delegate{dialog.Icon.Dispose();};dialog.ResumeLayout(false);UiScale.Apply(dialog,new Size(570,300),new Size(570,300));dialog.ShowDialog(this);
+                var done=Button(dialog,"关闭",390,278,158,36,true);done.Click+=delegate{dialog.Close();};
+                dialog.Disposed+=delegate{dialog.Icon.Dispose();};dialog.ResumeLayout(false);UiScale.Apply(dialog,new Size(570,335),new Size(570,335));dialog.ShowDialog(this);
             }
         }
         static void DirectoryOpen(string directory){System.IO.Directory.CreateDirectory(directory);Process.Start(new ProcessStartInfo(directory){UseShellExecute=true});}

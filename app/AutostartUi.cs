@@ -16,7 +16,7 @@ namespace RedmiFanControl {
                 catch(Exception ex){updatingStartup=true;startupBox.Checked=!requested;updatingStartup=false;if(!preview)MessageBox.Show(this,ex.Message,"自启设置失败",MessageBoxButtons.OK,MessageBoxIcon.Warning);}
             };
         }
-        void ShowMain(){ShowInTaskbar=true;Show();WindowState=FormWindowState.Normal;Activate();}
+        void ShowMain(){MarkVisible();Show();WindowState=FormWindowState.Normal;Activate();}
         internal void VerifyAutostartUi(){
             if(!preview)throw new InvalidOperationException("Autostart test must use memory only.");
             startupBox.Checked=true;if(startupStore.Read()!=Autostart.Command(Application.ExecutablePath))throw new Exception("Startup checkbox enable");

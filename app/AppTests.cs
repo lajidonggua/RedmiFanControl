@@ -25,6 +25,7 @@ namespace RedmiFanControl {
                 PolicyTests();
                 StatelessRegressionTests();
                 ConfigurationTests();
+                UiPreferencesTests();
                 RuntimeAndPresentationTests();
                 FrameLeaseTests();
                 using(var icon=AppBrand.WindowIcon())Require(icon.Width==32 && icon.Height==32,"Embedded window/tray icon size");
@@ -38,6 +39,7 @@ namespace RedmiFanControl {
                 using(var ui=new MainForm(true))ui.VerifyResizeLayout();
                 using(var ui=new MainForm(true))ui.VerifyAutostartUi();
                 using(var ui=new MainForm(true))ui.VerifyShutdownContract(testDirectory);
+                using(var ui=new MainForm(true))ui.VerifyCloseBehaviorUi();
                 var startupStore=new MemoryStartupStore();Autostart.Set(startupStore,@"C:\Fan Control\RedmiFanControl.exe",true);
                 Require(startupStore.Read()=="\"C:\\Fan Control\\RedmiFanControl.exe\" --startup","Startup quoting / safe startup flag");
                 Autostart.Set(startupStore,@"C:\Fan Control\RedmiFanControl.exe",false);Require(startupStore.Read()==null,"Startup removal");
@@ -56,6 +58,17 @@ namespace RedmiFanControl {
             Files.Write(path,new {Version=999});loaded=ConfigurationStore.Load(path,out note);
             Require(loaded.Percent==60 && note.Contains("备份"),"Invalid primary backup recovery");
             value.StopBelowC=95;Reject(delegate{value.Validate();});
+        }
+        static void UiPreferencesTests(){
+            string path=Path.Combine(testDirectory,"selftest-ui-preferences.json");
+            var value=new UiPreferences{CloseBehavior=CloseBehavior.HideToTray,LastInTray=true};UiPreferencesStore.Save(path,value);
+            string note;var loaded=UiPreferencesStore.Load(path,out note);
+            Require(loaded.CloseBehavior==CloseBehavior.HideToTray && loaded.LastInTray && note.Contains("已加载"),"UI preferences roundtrip");
+            loaded.CloseBehavior=CloseBehavior.Exit;loaded.LastInTray=false;UiPreferencesStore.Save(path,loaded);
+            Files.Write(path,new {Version=999,CloseBehavior=0,LastInTray=true});loaded=UiPreferencesStore.Load(path,out note);
+            Require(loaded.CloseBehavior==CloseBehavior.HideToTray && loaded.LastInTray && note.Contains("备份"),"Invalid UI preferences backup recovery");
+            loaded.Version=999;Reject(delegate{loaded.Validate();});
+            var defaultValue=new UiPreferences();Require(defaultValue.CloseBehavior==CloseBehavior.Ask && !defaultValue.LastInTray,"UI preferences safe defaults");
         }
         static void RuntimeAndPresentationTests(){
             string modules=Path.Combine(testDirectory,"embedded-runtime");RuntimeModules.Prepare(modules);RuntimeModules.Verify(modules);
