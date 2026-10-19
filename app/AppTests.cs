@@ -45,7 +45,7 @@ namespace RedmiFanControl {
                 Autostart.Set(startupStore,@"C:\Fan Control\RedmiFanControl.exe",false);Require(startupStore.Read()==null,"Startup removal");
                 Reject(delegate{Autostart.Command("relative.exe");});Reject(delegate{Autostart.Command("C:\\bad\"name.exe");});
                 using(var editor=new CurveEditor(new UserConfiguration().Curve))editor.VerifyContract();
-                File.WriteAllText(output,"PASS: maximize/restore/resize/scroll layout and all mode editors; independent EXE runtime extraction and tamper repair; legacy config migration without overwrite; asynchronous QUIT and same-session recovery; active-mode-only UI; stopped vs unavailable telemetry; thermal sweeps, requested->target rules, guardian floors, stop/stall, persistence/editor/heartbeats and 95C boundary. No hardware or real user settings accessed.");return 0;
+                File.WriteAllText(output,"PASS: maximize/restore/resize/scroll layout and all mode editors; remembered close behavior and tray/window state; independent EXE runtime extraction and tamper repair; legacy config migration without overwrite; asynchronous QUIT and same-session recovery; active-mode-only UI; stopped vs unavailable telemetry; thermal sweeps, requested->target rules, guardian floors, stop/stall, persistence/editor/heartbeats and 95C boundary. No hardware or real user settings accessed.");return 0;
             }catch(Exception ex){File.WriteAllText(output,"FAIL: "+ex);return 1;}
         }
         static void Require(bool ok,string text){if(!ok)throw new Exception(text);}
